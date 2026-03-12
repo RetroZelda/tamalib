@@ -568,7 +568,7 @@ static void set_io(u12_t n, u4_t v)
 			/* Do not care about OSC3 state nor operating voltage */
 			if ((v & 0x8) && cpu_frequency != OSC3_FREQUENCY) {
 				/* OSC3 */
-				cpu_frequency = OSC3_FREQUENCY;
+				cpu_frequency = (u32_t)OSC3_FREQUENCY;
 				scaled_cycle_accumulator = 0;
 				//g_hal->log(LOG_INFO, "Switch to OSC3\n");
 			}
@@ -1998,10 +1998,14 @@ int cpu_step(void)
 
 	handle_timers();
 
+// i gets flagged as potentially uninitialized.  however when we reach this code we know that it is set(the first loop)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 	/* Check if there is any pending interrupt */
 	if (I && i != 0 && i != 58) { // Do not process interrupts after a PSET or EI operation
 		process_interrupts();
 	}
+#pragma GCC diagnostic pop
 
 	/* Check if we could pause the execution */
 	while (!cpu_halted && bp != NULL) {
