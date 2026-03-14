@@ -32,6 +32,7 @@ typedef enum {
 	LOG_MEMORY	= (0x1 << 2),
 	LOG_CPU		= (0x1 << 3),
 	LOG_INT		= (0x1 << 4),
+	LOG_OP		= (0x1 << 5),
 } log_level_t;
 
 /* The Hardware Abstraction Layer
@@ -53,7 +54,7 @@ typedef struct {
 	 * NOTE: Needed only if log messages are required.
 	 */
 	bool_t (*is_log_enabled)(log_level_t level);
-	void (*log)(log_level_t level, char *buff, ...);
+	void (*log)(log_level_t level, const char __wf_rom *buff, ...);
 
 	/* Clock related functions
 	 * NOTE: Timestamps granularity is configured with tamalib_init(), an accuracy
