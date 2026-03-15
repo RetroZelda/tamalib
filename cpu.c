@@ -20,6 +20,8 @@
 #include "cpu.h"
 #include "hw.h"
 #include "hal.h"
+#include "opcodes.h"
+#include <stdcountof.h>
 
 #define TICK_FREQUENCY				32768 // Hz
 
@@ -143,6 +145,7 @@ const char __wf_rom LOG_ERROR_UNIMPLEMENTED_IO_WRITE[] = "Write 0x%X to unimplem
 const char __wf_rom LOG_ERROR_INVALID_MEMORY_READ[] = "Read from invalid memory address 0x%03X - PC = 0x%04X\n";
 const char __wf_rom LOG_ERROR_INVALID_MEMORY_WRITE[] = "Write 0x%X to invalid memory address 0x%03X - PC = 0x%04X\n";
 const char __wf_rom LOG_ERROR_UNKNOWN_OPCODE[] = "Unknown op-code 0x%X (pc = 0x%04X)\n";
+const char __wf_rom LOG_ERROR_OPCODE_LOOKUP_FAILED[] = "%X %X %X\n";
 const char __wf_rom LOG_MEMORY_RAM[] = "RAM\n";
 const char __wf_rom LOG_MEMORY_DISPLAY[] = "Display Memory %d\n";
 const char __wf_rom LOG_MEMORY_IO[] = "I/O\n";
@@ -156,6 +159,7 @@ const char __wf_rom LOG_CPU_SPACE[] = "  ";
 const char __wf_rom LOG_CPU_ARROW[] = "<<< ";
 const char __wf_rom LOG_CPU_OPCODE[] = " ; 0x%03X - ";
 const char __wf_rom LOG_CPU_STR[] = "%s";
+const char __wf_rom LOG_CPU_NL[] = "\n";
 const char __wf_rom LOG_CPU_STATS[] = " - PC = 0x%04X, SP = 0x%02X, NP = 0x%02X, X = 0x%03X, Y = 0x%03X, A = 0x%X, B = 0x%X, F = 0x%X\n";
 const char __wf_rom LOG_INFO_BUZZER[] = "Output/Buzzer: 0x%X\n";
 const char __wf_rom LOG_INFO_OS3[] = "Switch to OSC3\n";
@@ -169,114 +173,114 @@ const char __wf_rom INTERUPT_K00_K03_SLOT[] = "INT_K00_K03_SLOT";
 const char __wf_rom INTERUPT_STOPWATCH_SLOT[] = "INT_STOPWATCH_SLOT";
 const char __wf_rom INTERUPT_CLOCK_TIMER_SLOT[] = "INT_CLOCK_TIMER_SLOT";
 
-const char __wf_rom OPCODE_PSET[] = "PSET #0x%02X\n";
-const char __wf_rom OPCODE_JP[] = "JP   #0x%02X\n";
-const char __wf_rom OPCODE_JP_C[] = "JP   C #0x%02X\n";
-const char __wf_rom OPCODE_JP_NC[] = "JP   NC #0x%02X\n";
-const char __wf_rom OPCODE_JP_Z[] = "JP   Z #0x%02X\n";
-const char __wf_rom OPCODE_JP_NZ[] = "JP   NZ #0x%02X\n";
-const char __wf_rom OPCODE_JPBA[] = "JPBA\n";
-const char __wf_rom OPCODE_CALL[] = "CALL #0x%02X\n";
-const char __wf_rom OPCODE_CALZ[] = "CALZ #0x%02X\n";
-const char __wf_rom OPCODE_RET[] = "RET\n";
-const char __wf_rom OPCODE_RETS[] = "RETS\n";
-const char __wf_rom OPCODE_RETD[] = "RETD #0x%02X\n";
-const char __wf_rom OPCODE_NOP5[] = "NOP5\n";
-const char __wf_rom OPCODE_NOP7[] = "NOP7\n";
-const char __wf_rom OPCODE_HALT[] = "HALT\n";
-const char __wf_rom OPCODE_INC_X[] = "INC  X #0x%02X\n";
-const char __wf_rom OPCODE_INC_Y[] = "INC  Y #0x%02X\n";
-const char __wf_rom OPCODE_LD_X[] = "LD   X #0x%02X\n";
-const char __wf_rom OPCODE_LD_Y[] = "LD   Y #0x%02X\n";
-const char __wf_rom OPCODE_LD_XP_R[] = "LD   XP R(%X)\n";
-const char __wf_rom OPCODE_LD_XH_R[] = "LD   XH R(%X)\n";
-const char __wf_rom OPCODE_LD_XL_R[] = "LD   XL R(%X)\n";
-const char __wf_rom OPCODE_LD_YP_R[] = "LD   YP R(%X)\n";
-const char __wf_rom OPCODE_LD_YH_R[] = "LD   YH R(%X)\n";
-const char __wf_rom OPCODE_LD_YL_R[] = "LD   YL R(%X)\n";
-const char __wf_rom OPCODE_LD_R_XP[] = "LD   R(%X) XP\n";
-const char __wf_rom OPCODE_LD_R_XH[] = "LD   R(%X) XH\n";
-const char __wf_rom OPCODE_LD_R_XL[] = "LD   R(%X) XL\n";
-const char __wf_rom OPCODE_LD_R_YP[] = "LD   R(%X) YP\n";
-const char __wf_rom OPCODE_LD_R_YH[] = "LD   R(%X) YH\n";
-const char __wf_rom OPCODE_LD_R_YL[] = "LD   R(%X) YL\n";
-const char __wf_rom OPCODE_ADC_XH[] = "ADC  XH #0x%02X\n";
-const char __wf_rom OPCODE_ADC_XL[] = "ADC  XL #0x%02X\n";
-const char __wf_rom OPCODE_ADC_YH[] = "ADC  YH #0x%02X\n";
-const char __wf_rom OPCODE_ADC_YL[] = "ADC  YL #0x%02X\n";
-const char __wf_rom OPCODE_CP_XH[] = "CP   XH #0x%02X\n";
-const char __wf_rom OPCODE_CP_XL[] = "CP   XL #0x%02X\n";
-const char __wf_rom OPCODE_CP_YH[] = "CP   YH #0x%02X\n";
-const char __wf_rom OPCODE_CP_YL[] = "CP   YL #0x%02X\n";
-const char __wf_rom OPCODE_LD_R_I[] = "LD   R(%X) #0x%02X\n";
-const char __wf_rom OPCODE_LD_R_Q[] = "LD   R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_LD_A_MN[] = "LD   A M(#0x%02X)\n";
-const char __wf_rom OPCODE_LD_B_MN[] = "LD   B M(#0x%02X)\n";
-const char __wf_rom OPCODE_LD_MN_A[] = "LD   M(#0x%02X) A\n";
-const char __wf_rom OPCODE_LD_MN_B[] = "LD   M(#0x%02X) B\n";
-const char __wf_rom OPCODE_LDPX_MX[] = "LDPX MX #0x%02X\n";
-const char __wf_rom OPCODE_LDPX_R[] = "LDPX R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_LDPY_MY[] = "LDPY MY #0x%02X\n";
-const char __wf_rom OPCODE_LDPY_R[] = "LDPY R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_LBPX[] = "LBPX #0x%02X\n";
-const char __wf_rom OPCODE_SET[] = "SET  #0x%02X\n";
-const char __wf_rom OPCODE_RST[] = "RST  #0x%02X\n";
-const char __wf_rom OPCODE_SCF[] = "SCF\n";
-const char __wf_rom OPCODE_RCF[] = "RCF\n";
-const char __wf_rom OPCODE_SZF[] = "SZF\n";
-const char __wf_rom OPCODE_RZF[] = "RZF\n";
-const char __wf_rom OPCODE_SDF[] = "SDF\n";
-const char __wf_rom OPCODE_RDF[] = "RDF\n";
-const char __wf_rom OPCODE_EI[] = "EI\n";
-const char __wf_rom OPCODE_DI[] = "DI\n";
-const char __wf_rom OPCODE_INC_SP[] = "INC  SP\n";
-const char __wf_rom OPCODE_DEC_SP[] = "DEC  SP\n";
-const char __wf_rom OPCODE_PUSH_R[] = "PUSH R(%X)\n";
-const char __wf_rom OPCODE_PUSH_XP[] = "PUSH XP\n";
-const char __wf_rom OPCODE_PUSH_XH[] = "PUSH XH\n";
-const char __wf_rom OPCODE_PUSH_XL[] = "PUSH XL\n";
-const char __wf_rom OPCODE_PUSH_YP[] = "PUSH YP\n";
-const char __wf_rom OPCODE_PUSH_YH[] = "PUSH YH\n";
-const char __wf_rom OPCODE_PUSH_YL[] = "PUSH YL\n";
-const char __wf_rom OPCODE_PUSH_F[] = "PUSH F\n";
-const char __wf_rom OPCODE_POP_R[] = "POP  R(%X)\n";
-const char __wf_rom OPCODE_POP_XP[] = "POP  XP\n";
-const char __wf_rom OPCODE_POP_XH[] = "POP  XH\n";
-const char __wf_rom OPCODE_POP_XL[] = "POP  XL\n";
-const char __wf_rom OPCODE_POP_YP[] = "POP  YP\n";
-const char __wf_rom OPCODE_POP_YH[] = "POP  YH\n";
-const char __wf_rom OPCODE_POP_YL[] = "POP  YL\n";
-const char __wf_rom OPCODE_POP_F[] = "POP  F\n";
-const char __wf_rom OPCODE_LD_SPH_R[] = "LD   SPH R(%X)\n";
-const char __wf_rom OPCODE_LD_SPL_R[] = "LD   SPL R(%X)\n";
-const char __wf_rom OPCODE_LD_R_SPH[] = "LD   R(%X) SPH\n";
-const char __wf_rom OPCODE_LD_R_SPL[] = "LD   R(%X) SPL\n";
-const char __wf_rom OPCODE_ADD_R_I[] = "ADD  R(%X) #0x%02X\n";
-const char __wf_rom OPCODE_ADD_R_Q[] = "ADD  R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_ADC_R_I[] = "ADC  R(%X) #0x%02X\n";
-const char __wf_rom OPCODE_ADC_R_Q[] = "ADC  R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_SUB[] = "SUB  R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_SBC_R_I[] = "SBC  R(%X) #0x%02X\n";
-const char __wf_rom OPCODE_SBC_R_Q[] = "SBC  R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_AND_R_I[] = "AND  R(%X) #0x%02X\n";
-const char __wf_rom OPCODE_AND_R_Q[] = "AND  R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_OR_R_I[] = "OR   R(%X) #0x%02X\n";
-const char __wf_rom OPCODE_OR_R_Q[] = "OR   R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_XOR_R_I[] = "XOR  R(%X) #0x%02X\n";
-const char __wf_rom OPCODE_XOR_R_Q[] = "XOR  R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_CP_R_I[] = "CP   R(%X) #0x%02X\n";
-const char __wf_rom OPCODE_CP_R_Q[] = "CP   R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_FAN_R_I[] = "FAN  R(%X) #0x%02X\n";
-const char __wf_rom OPCODE_FAN_R_Q[] = "FAN  R(%X) Q(%X)\n";
-const char __wf_rom OPCODE_RLC[] = "RLC  R(%X)\n";
-const char __wf_rom OPCODE_RRC[] = "RRC  R(%X)\n";
-const char __wf_rom OPCODE_INC_MN[] = "INC  M(#0x%02X)\n";
-const char __wf_rom OPCODE_DEC_MN[] = "DEC  M(#0x%02X)\n";
-const char __wf_rom OPCODE_ACPX[] = "ACPX R(%X)\n";
-const char __wf_rom OPCODE_ACPY[] = "ACPY R(%X)\n";
-const char __wf_rom OPCODE_SCPX[] = "SCPX R(%X)\n";
-const char __wf_rom OPCODE_SCPY[] = "SCPY R(%X)\n";
-const char __wf_rom OPCODE_NOT[] = "NOT  R(%X)\n";
+const char __wf_rom LOG_OPCODE_PSET[] = "PSET #0x%02X\n";
+const char __wf_rom LOG_OPCODE_JP[] = "JP   #0x%02X\n";
+const char __wf_rom LOG_OPCODE_JP_C[] = "JP   C #0x%02X\n";
+const char __wf_rom LOG_OPCODE_JP_NC[] = "JP   NC #0x%02X\n";
+const char __wf_rom LOG_OPCODE_JP_Z[] = "JP   Z #0x%02X\n";
+const char __wf_rom LOG_OPCODE_JP_NZ[] = "JP   NZ #0x%02X\n";
+const char __wf_rom LOG_OPCODE_JPBA[] = "JPBA\n";
+const char __wf_rom LOG_OPCODE_CALL[] = "CALL #0x%02X\n";
+const char __wf_rom LOG_OPCODE_CALZ[] = "CALZ #0x%02X\n";
+const char __wf_rom LOG_OPCODE_RET[] = "RET\n";
+const char __wf_rom LOG_OPCODE_RETS[] = "RETS\n";
+const char __wf_rom LOG_OPCODE_RETD[] = "RETD #0x%02X\n";
+const char __wf_rom LOG_OPCODE_NOP5[] = "NOP5\n";
+const char __wf_rom LOG_OPCODE_NOP7[] = "NOP7\n";
+const char __wf_rom LOG_OPCODE_HALT[] = "HALT\n";
+const char __wf_rom LOG_OPCODE_INC_X[] = "INC  X #0x%02X\n";
+const char __wf_rom LOG_OPCODE_INC_Y[] = "INC  Y #0x%02X\n";
+const char __wf_rom LOG_OPCODE_LD_X[] = "LD   X #0x%02X\n";
+const char __wf_rom LOG_OPCODE_LD_Y[] = "LD   Y #0x%02X\n";
+const char __wf_rom LOG_OPCODE_LD_XP_R[] = "LD   XP R(%X)\n";
+const char __wf_rom LOG_OPCODE_LD_XH_R[] = "LD   XH R(%X)\n";
+const char __wf_rom LOG_OPCODE_LD_XL_R[] = "LD   XL R(%X)\n";
+const char __wf_rom LOG_OPCODE_LD_YP_R[] = "LD   YP R(%X)\n";
+const char __wf_rom LOG_OPCODE_LD_YH_R[] = "LD   YH R(%X)\n";
+const char __wf_rom LOG_OPCODE_LD_YL_R[] = "LD   YL R(%X)\n";
+const char __wf_rom LOG_OPCODE_LD_R_XP[] = "LD   R(%X) XP\n";
+const char __wf_rom LOG_OPCODE_LD_R_XH[] = "LD   R(%X) XH\n";
+const char __wf_rom LOG_OPCODE_LD_R_XL[] = "LD   R(%X) XL\n";
+const char __wf_rom LOG_OPCODE_LD_R_YP[] = "LD   R(%X) YP\n";
+const char __wf_rom LOG_OPCODE_LD_R_YH[] = "LD   R(%X) YH\n";
+const char __wf_rom LOG_OPCODE_LD_R_YL[] = "LD   R(%X) YL\n";
+const char __wf_rom LOG_OPCODE_ADC_XH[] = "ADC  XH #0x%02X\n";
+const char __wf_rom LOG_OPCODE_ADC_XL[] = "ADC  XL #0x%02X\n";
+const char __wf_rom LOG_OPCODE_ADC_YH[] = "ADC  YH #0x%02X\n";
+const char __wf_rom LOG_OPCODE_ADC_YL[] = "ADC  YL #0x%02X\n";
+const char __wf_rom LOG_OPCODE_CP_XH[] = "CP   XH #0x%02X\n";
+const char __wf_rom LOG_OPCODE_CP_XL[] = "CP   XL #0x%02X\n";
+const char __wf_rom LOG_OPCODE_CP_YH[] = "CP   YH #0x%02X\n";
+const char __wf_rom LOG_OPCODE_CP_YL[] = "CP   YL #0x%02X\n";
+const char __wf_rom LOG_OPCODE_LD_R_I[] = "LD   R(%X) #0x%02X\n";
+const char __wf_rom LOG_OPCODE_LD_R_Q[] = "LD   R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_LD_A_MN[] = "LD   A M(#0x%02X)\n";
+const char __wf_rom LOG_OPCODE_LD_B_MN[] = "LD   B M(#0x%02X)\n";
+const char __wf_rom LOG_OPCODE_LD_MN_A[] = "LD   M(#0x%02X) A\n";
+const char __wf_rom LOG_OPCODE_LD_MN_B[] = "LD   M(#0x%02X) B\n";
+const char __wf_rom LOG_OPCODE_LDPX_MX[] = "LDPX MX #0x%02X\n";
+const char __wf_rom LOG_OPCODE_LDPX_R[] = "LDPX R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_LDPY_MY[] = "LDPY MY #0x%02X\n";
+const char __wf_rom LOG_OPCODE_LDPY_R[] = "LDPY R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_LBPX[] = "LBPX #0x%02X\n";
+const char __wf_rom LOG_OPCODE_SET[] = "SET  #0x%02X\n";
+const char __wf_rom LOG_OPCODE_RST[] = "RST  #0x%02X\n";
+const char __wf_rom LOG_OPCODE_SCF[] = "SCF\n";
+const char __wf_rom LOG_OPCODE_RCF[] = "RCF\n";
+const char __wf_rom LOG_OPCODE_SZF[] = "SZF\n";
+const char __wf_rom LOG_OPCODE_RZF[] = "RZF\n";
+const char __wf_rom LOG_OPCODE_SDF[] = "SDF\n";
+const char __wf_rom LOG_OPCODE_RDF[] = "RDF\n";
+const char __wf_rom LOG_OPCODE_EI[] = "EI\n";
+const char __wf_rom LOG_OPCODE_DI[] = "DI\n";
+const char __wf_rom LOG_OPCODE_INC_SP[] = "INC  SP\n";
+const char __wf_rom LOG_OPCODE_DEC_SP[] = "DEC  SP\n";
+const char __wf_rom LOG_OPCODE_PUSH_R[] = "PUSH R(%X)\n";
+const char __wf_rom LOG_OPCODE_PUSH_XP[] = "PUSH XP\n";
+const char __wf_rom LOG_OPCODE_PUSH_XH[] = "PUSH XH\n";
+const char __wf_rom LOG_OPCODE_PUSH_XL[] = "PUSH XL\n";
+const char __wf_rom LOG_OPCODE_PUSH_YP[] = "PUSH YP\n";
+const char __wf_rom LOG_OPCODE_PUSH_YH[] = "PUSH YH\n";
+const char __wf_rom LOG_OPCODE_PUSH_YL[] = "PUSH YL\n";
+const char __wf_rom LOG_OPCODE_PUSH_F[] = "PUSH F\n";
+const char __wf_rom LOG_OPCODE_POP_R[] = "POP  R(%X)\n";
+const char __wf_rom LOG_OPCODE_POP_XP[] = "POP  XP\n";
+const char __wf_rom LOG_OPCODE_POP_XH[] = "POP  XH\n";
+const char __wf_rom LOG_OPCODE_POP_XL[] = "POP  XL\n";
+const char __wf_rom LOG_OPCODE_POP_YP[] = "POP  YP\n";
+const char __wf_rom LOG_OPCODE_POP_YH[] = "POP  YH\n";
+const char __wf_rom LOG_OPCODE_POP_YL[] = "POP  YL\n";
+const char __wf_rom LOG_OPCODE_POP_F[] = "POP  F\n";
+const char __wf_rom LOG_OPCODE_LD_SPH_R[] = "LD   SPH R(%X)\n";
+const char __wf_rom LOG_OPCODE_LD_SPL_R[] = "LD   SPL R(%X)\n";
+const char __wf_rom LOG_OPCODE_LD_R_SPH[] = "LD   R(%X) SPH\n";
+const char __wf_rom LOG_OPCODE_LD_R_SPL[] = "LD   R(%X) SPL\n";
+const char __wf_rom LOG_OPCODE_ADD_R_I[] = "ADD  R(%X) #0x%02X\n";
+const char __wf_rom LOG_OPCODE_ADD_R_Q[] = "ADD  R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_ADC_R_I[] = "ADC  R(%X) #0x%02X\n";
+const char __wf_rom LOG_OPCODE_ADC_R_Q[] = "ADC  R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_SUB[] = "SUB  R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_SBC_R_I[] = "SBC  R(%X) #0x%02X\n";
+const char __wf_rom LOG_OPCODE_SBC_R_Q[] = "SBC  R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_AND_R_I[] = "AND  R(%X) #0x%02X\n";
+const char __wf_rom LOG_OPCODE_AND_R_Q[] = "AND  R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_OR_R_I[] = "OR   R(%X) #0x%02X\n";
+const char __wf_rom LOG_OPCODE_OR_R_Q[] = "OR   R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_XOR_R_I[] = "XOR  R(%X) #0x%02X\n";
+const char __wf_rom LOG_OPCODE_XOR_R_Q[] = "XOR  R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_CP_R_I[] = "CP   R(%X) #0x%02X\n";
+const char __wf_rom LOG_OPCODE_CP_R_Q[] = "CP   R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_FAN_R_I[] = "FAN  R(%X) #0x%02X\n";
+const char __wf_rom LOG_OPCODE_FAN_R_Q[] = "FAN  R(%X) Q(%X)\n";
+const char __wf_rom LOG_OPCODE_RLC[] = "RLC  R(%X)\n";
+const char __wf_rom LOG_OPCODE_RRC[] = "RRC  R(%X)\n";
+const char __wf_rom LOG_OPCODE_INC_MN[] = "INC  M(#0x%02X)\n";
+const char __wf_rom LOG_OPCODE_DEC_MN[] = "DEC  M(#0x%02X)\n";
+const char __wf_rom LOG_OPCODE_ACPX[] = "ACPX R(%X)\n";
+const char __wf_rom LOG_OPCODE_ACPY[] = "ACPY R(%X)\n";
+const char __wf_rom LOG_OPCODE_SCPX[] = "SCPX R(%X)\n";
+const char __wf_rom LOG_OPCODE_SCPY[] = "SCPY R(%X)\n";
+const char __wf_rom LOG_OPCODE_NOT[] = "NOT  R(%X)\n";
 #endif // ENABLE_LOGS
 
 typedef struct {
@@ -1710,121 +1714,21 @@ static void op_not_cb(u8_t arg0, u8_t arg1)
 #define LOG_STRING(str) NULL
 #endif // ENABLE_LOGS
 
-/* The E0C6S46 supported instructions */
-static const op_t __wf_rom ops[] = {
-/*	 log				Code	mask		shift_arg0	mask_arg0	cycles	func			*/
-	{LOG_STRING(OPCODE_PSET),		0xE40,	MASK_7B,	0, 			0    , 		5 , 	&op_pset_cb		}, // PSET
-	{LOG_STRING(OPCODE_JP),			0x000,	MASK_4B,	0, 			0    , 		5 , 	&op_jp_cb		}, // JP
-	{LOG_STRING(OPCODE_JP_C),		0x200,	MASK_4B,	0, 			0    , 		5 , 	&op_jp_c_cb		}, // JP_C
-	{LOG_STRING(OPCODE_JP_NC),		0x300,	MASK_4B,	0, 			0    , 		5 , 	&op_jp_nc_cb	}, // JP_NC
-	{LOG_STRING(OPCODE_JP_Z),		0x600,	MASK_4B,	0, 			0    , 		5 , 	&op_jp_z_cb		}, // JP_Z
-	{LOG_STRING(OPCODE_JP_NZ),		0x700,	MASK_4B,	0, 			0    , 		5 , 	&op_jp_nz_cb	}, // JP_NZ
-	{LOG_STRING(OPCODE_JPBA),		0xFE8,	MASK_12B,	0, 			0    , 		5 , 	&op_jpba_cb		}, // JPBA
-	{LOG_STRING(OPCODE_CALL),		0x400,	MASK_4B,	0, 			0    , 		7 , 	&op_call_cb		}, // CALL
-	{LOG_STRING(OPCODE_CALZ),		0x500,	MASK_4B,	0, 			0    , 		7 , 	&op_calz_cb		}, // CALZ
-	{LOG_STRING(OPCODE_RET),		0xFDF,	MASK_12B,	0, 			0    , 		7 , 	&op_ret_cb		}, // RET
-	{LOG_STRING(OPCODE_RETS),		0xFDE,	MASK_12B,	0, 			0    , 		12, 	&op_rets_cb		}, // RETS
-	{LOG_STRING(OPCODE_RETD),		0x100,	MASK_4B,	0, 			0    , 		12, 	&op_retd_cb		}, // RETD
-	{LOG_STRING(OPCODE_NOP5),		0xFFB,	MASK_12B,	0, 			0    , 		5 , 	&op_nop5_cb		}, // NOP5
-	{LOG_STRING(OPCODE_NOP7),		0xFFF,	MASK_12B,	0, 			0    , 		7 , 	&op_nop7_cb		}, // NOP7
-	{LOG_STRING(OPCODE_HALT),		0xFF8,	MASK_12B,	0, 			0    , 		5 , 	&op_halt_cb		}, // HALT
-	{LOG_STRING(OPCODE_INC_X),		0xEE0,	MASK_12B,	0, 			0    , 		5 , 	&op_inc_x_cb	}, // INC_X
-	{LOG_STRING(OPCODE_INC_Y),		0xEF0,	MASK_12B,	0, 			0    , 		5 , 	&op_inc_y_cb	}, // INC_Y
-	{LOG_STRING(OPCODE_LD_X),		0xB00,	MASK_4B,	0, 			0    , 		5 , 	&op_ld_x_cb		}, // LD_X
-	{LOG_STRING(OPCODE_LD_Y),		0x800,	MASK_4B,	0, 			0    , 		5 , 	&op_ld_y_cb		}, // LD_Y
-	{LOG_STRING(OPCODE_LD_XP_R),	0xE80,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_xp_r_cb	}, // LD_XP_R
-	{LOG_STRING(OPCODE_LD_XH_R),	0xE84,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_xh_r_cb	}, // LD_XH_R
-	{LOG_STRING(OPCODE_LD_XL_R),	0xE88,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_xl_r_cb	}, // LD_XL_R
-	{LOG_STRING(OPCODE_LD_YP_R),	0xE90,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_yp_r_cb	}, // LD_YP_R
-	{LOG_STRING(OPCODE_LD_YH_R),	0xE94,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_yh_r_cb	}, // LD_YH_R
-	{LOG_STRING(OPCODE_LD_YL_R),	0xE98,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_yl_r_cb	}, // LD_YL_R
-	{LOG_STRING(OPCODE_LD_R_XP),	0xEA0,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_xp_cb	}, // LD_R_XP
-	{LOG_STRING(OPCODE_LD_R_XH),	0xEA4,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_xh_cb	}, // LD_R_XH
-	{LOG_STRING(OPCODE_LD_R_XL),	0xEA8,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_xl_cb	}, // LD_R_XL
-	{LOG_STRING(OPCODE_LD_R_YP),	0xEB0,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_yp_cb	}, // LD_R_YP
-	{LOG_STRING(OPCODE_LD_R_YH),	0xEB4,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_yh_cb	}, // LD_R_YH
-	{LOG_STRING(OPCODE_LD_R_YL),	0xEB8,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_yl_cb	}, // LD_R_YL
-	{LOG_STRING(OPCODE_ADC_XH),		0xA00,	MASK_8B,	0, 			0    , 		7 , 	&op_adc_xh_cb	}, // ADC_XH
-	{LOG_STRING(OPCODE_ADC_XL),		0xA10,	MASK_8B,	0, 			0    , 		7 , 	&op_adc_xl_cb	}, // ADC_XL
-	{LOG_STRING(OPCODE_ADC_YH),		0xA20,	MASK_8B,	0, 			0    , 		7 , 	&op_adc_yh_cb	}, // ADC_YH
-	{LOG_STRING(OPCODE_ADC_YL),		0xA30,	MASK_8B,	0, 			0    , 		7 , 	&op_adc_yl_cb	}, // ADC_YL
-	{LOG_STRING(OPCODE_CP_XH),		0xA40,	MASK_8B,	0, 			0    , 		7 , 	&op_cp_xh_cb	}, // CP_XH
-	{LOG_STRING(OPCODE_CP_XL),		0xA50,	MASK_8B,	0, 			0    , 		7 , 	&op_cp_xl_cb	}, // CP_XL
-	{LOG_STRING(OPCODE_CP_YH),		0xA60,	MASK_8B,	0, 			0    , 		7 , 	&op_cp_yh_cb	}, // CP_YH
-	{LOG_STRING(OPCODE_CP_YL),		0xA70,	MASK_8B,	0, 			0    , 		7 , 	&op_cp_yl_cb	}, // CP_YL
-	{LOG_STRING(OPCODE_LD_R_I),		0xE00,	MASK_6B,	4, 			0x030, 		5 , 	&op_ld_r_i_cb	}, // LD_R_I
-	{LOG_STRING(OPCODE_LD_R_Q),		0xEC0,	MASK_8B,	2, 			0x00C, 		5 , 	&op_ld_r_q_cb	}, // LD_R_Q
-	{LOG_STRING(OPCODE_LD_A_MN),	0xFA0,	MASK_8B,	0, 			0    , 		5 , 	&op_ld_a_mn_cb	}, // LD_A_MN
-	{LOG_STRING(OPCODE_LD_B_MN),	0xFB0,	MASK_8B,	0, 			0    , 		5 , 	&op_ld_b_mn_cb	}, // LD_B_MN
-	{LOG_STRING(OPCODE_LD_MN_A),	0xF80,	MASK_8B,	0, 			0    , 		5 , 	&op_ld_mn_a_cb	}, // LD_MN_A
-	{LOG_STRING(OPCODE_LD_MN_B),	0xF90,	MASK_8B,	0, 			0    , 		5 , 	&op_ld_mn_b_cb	}, // LD_MN_B
-	{LOG_STRING(OPCODE_LDPX_MX),	0xE60,	MASK_8B,	0, 			0    , 		5 , 	&op_ldpx_mx_cb	}, // LDPX_MX
-	{LOG_STRING(OPCODE_LDPX_R),		0xEE0,	MASK_8B,	2, 			0x00C, 		5 , 	&op_ldpx_r_cb	}, // LDPX_R
-	{LOG_STRING(OPCODE_LDPY_MY),	0xE70,	MASK_8B,	0, 			0    , 		5 , 	&op_ldpy_my_cb	}, // LDPY_MY
-	{LOG_STRING(OPCODE_LDPY_R),		0xEF0,	MASK_8B,	2, 			0x00C, 		5 , 	&op_ldpy_r_cb	}, // LDPY_R
-	{LOG_STRING(OPCODE_LBPX),		0x900,	MASK_4B,	0, 			0    , 		5 , 	&op_lbpx_cb		}, // LBPX
-	{LOG_STRING(OPCODE_SET),		0xF40,	MASK_8B,	0, 			0    , 		7 , 	&op_set_cb		}, // SET
-	{LOG_STRING(OPCODE_RST),		0xF50,	MASK_8B,	0, 			0    , 		7 , 	&op_rst_cb		}, // RST
-	{LOG_STRING(OPCODE_SCF),		0xF41,	MASK_12B,	0, 			0    , 		7 , 	&op_scf_cb		}, // SCF
-	{LOG_STRING(OPCODE_RCF),		0xF5E,	MASK_12B,	0, 			0    , 		7 , 	&op_rcf_cb		}, // RCF
-	{LOG_STRING(OPCODE_SZF),		0xF42,	MASK_12B,	0, 			0    , 		7 , 	&op_szf_cb		}, // SZF
-	{LOG_STRING(OPCODE_RZF),		0xF5D,	MASK_12B,	0, 			0    , 		7 , 	&op_rzf_cb		}, // RZF
-	{LOG_STRING(OPCODE_SDF),		0xF44,	MASK_12B,	0, 			0    , 		7 , 	&op_sdf_cb		}, // SDF
-	{LOG_STRING(OPCODE_RDF),		0xF5B,	MASK_12B,	0, 			0    , 		7 , 	&op_rdf_cb		}, // RDF
-	{LOG_STRING(OPCODE_EI),			0xF48,	MASK_12B,	0, 			0    , 		7 , 	&op_ei_cb		}, // EI
-	{LOG_STRING(OPCODE_DI),			0xF57,	MASK_12B,	0, 			0    , 		7 , 	&op_di_cb		}, // DI
-	{LOG_STRING(OPCODE_INC_SP),		0xFDB,	MASK_12B,	0, 			0    , 		5 , 	&op_inc_sp_cb	}, // INC_SP
-	{LOG_STRING(OPCODE_DEC_SP),		0xFCB,	MASK_12B,	0, 			0    , 		5 , 	&op_dec_sp_cb	}, // DEC_SP
-	{LOG_STRING(OPCODE_PUSH_R),		0xFC0,	MASK_10B,	0, 			0    , 		5 , 	&op_push_r_cb	}, // PUSH_R
-	{LOG_STRING(OPCODE_PUSH_XP),	0xFC4,	MASK_12B,	0, 			0    , 		5 , 	&op_push_xp_cb	}, // PUSH_XP
-	{LOG_STRING(OPCODE_PUSH_XH),	0xFC5,	MASK_12B,	0, 			0    , 		5 , 	&op_push_xh_cb	}, // PUSH_XH
-	{LOG_STRING(OPCODE_PUSH_XL),	0xFC6,	MASK_12B,	0, 			0    , 		5 , 	&op_push_xl_cb	}, // PUSH_XL
-	{LOG_STRING(OPCODE_PUSH_YP),	0xFC7,	MASK_12B,	0, 			0    , 		5 , 	&op_push_yp_cb	}, // PUSH_YP
-	{LOG_STRING(OPCODE_PUSH_YH),	0xFC8,	MASK_12B,	0, 			0    , 		5 , 	&op_push_yh_cb	}, // PUSH_YH
-	{LOG_STRING(OPCODE_PUSH_YL),	0xFC9,	MASK_12B,	0, 			0    , 		5 , 	&op_push_yl_cb	}, // PUSH_YL
-	{LOG_STRING(OPCODE_PUSH_F),		0xFCA,	MASK_12B,	0, 			0    , 		5 , 	&op_push_f_cb	}, // PUSH_F
-	{LOG_STRING(OPCODE_POP_R),		0xFD0,	MASK_10B,	0, 			0    , 		5 , 	&op_pop_r_cb	}, // POP_R
-	{LOG_STRING(OPCODE_POP_XP),		0xFD4,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_xp_cb	}, // POP_XP
-	{LOG_STRING(OPCODE_POP_XH),		0xFD5,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_xh_cb	}, // POP_XH
-	{LOG_STRING(OPCODE_POP_XL),		0xFD6,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_xl_cb	}, // POP_XL
-	{LOG_STRING(OPCODE_POP_YP),		0xFD7,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_yp_cb	}, // POP_YP
-	{LOG_STRING(OPCODE_POP_YH),		0xFD8,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_yh_cb	}, // POP_YH
-	{LOG_STRING(OPCODE_POP_YL),		0xFD9,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_yl_cb	}, // POP_YL
-	{LOG_STRING(OPCODE_POP_F),		0xFDA,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_f_cb	}, // POP_F
-	{LOG_STRING(OPCODE_LD_SPH_R),	0xFE0,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_sph_r_cb	}, // LD_SPH_R
-	{LOG_STRING(OPCODE_LD_SPL_R),	0xFF0,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_spl_r_cb	}, // LD_SPL_R
-	{LOG_STRING(OPCODE_LD_R_SPH),	0xFE4,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_sph_cb	}, // LD_R_SPH
-	{LOG_STRING(OPCODE_LD_R_SPL),	0xFF4,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_spl_cb	}, // LD_R_SPL
-	{LOG_STRING(OPCODE_ADD_R_I),	0xC00,	MASK_6B,	4, 			0x030, 		7 , 	&op_add_r_i_cb	}, // ADD_R_I
-	{LOG_STRING(OPCODE_ADD_R_Q),	0xA80,	MASK_8B,	2, 			0x00C, 		7 , 	&op_add_r_q_cb	}, // ADD_R_Q
-	{LOG_STRING(OPCODE_ADC_R_I),	0xC40,	MASK_6B,	4, 			0x030, 		7 , 	&op_adc_r_i_cb	}, // ADC_R_I
-	{LOG_STRING(OPCODE_ADC_R_Q),	0xA90,	MASK_8B,	2, 			0x00C, 		7 , 	&op_adc_r_q_cb	}, // ADC_R_Q
-	{LOG_STRING(OPCODE_SUB),		0xAA0,	MASK_8B,	2, 			0x00C, 		7 , 	&op_sub_cb		}, // SUB
-	{LOG_STRING(OPCODE_SBC_R_I),	0xD40,	MASK_6B,	4, 			0x030, 		7 , 	&op_sbc_r_i_cb	}, // SBC_R_I
-	{LOG_STRING(OPCODE_SBC_R_Q),	0xAB0,	MASK_8B,	2, 			0x00C, 		7 , 	&op_sbc_r_q_cb	}, // SBC_R_Q
-	{LOG_STRING(OPCODE_AND_R_I),	0xC80,	MASK_6B,	4, 			0x030, 		7 , 	&op_and_r_i_cb	}, // AND_R_I
-	{LOG_STRING(OPCODE_AND_R_Q),	0xAC0,	MASK_8B,	2, 			0x00C, 		7 , 	&op_and_r_q_cb	}, // AND_R_Q
-	{LOG_STRING(OPCODE_OR_R_I),		0xCC0,	MASK_6B,	4, 			0x030, 		7 , 	&op_or_r_i_cb	}, // OR_R_I
-	{LOG_STRING(OPCODE_OR_R_Q),		0xAD0,	MASK_8B,	2, 			0x00C, 		7 , 	&op_or_r_q_cb	}, // OR_R_Q
-	{LOG_STRING(OPCODE_XOR_R_I),	0xD00,	MASK_6B,	4, 			0x030, 		7 , 	&op_xor_r_i_cb	}, // XOR_R_I
-	{LOG_STRING(OPCODE_XOR_R_Q),	0xAE0,	MASK_8B,	2, 			0x00C, 		7 , 	&op_xor_r_q_cb	}, // XOR_R_Q
-	{LOG_STRING(OPCODE_CP_R_I),		0xDC0,	MASK_6B,	4, 			0x030, 		7 , 	&op_cp_r_i_cb	}, // CP_R_I
-	{LOG_STRING(OPCODE_CP_R_Q),		0xF00,	MASK_8B,	2, 			0x00C, 		7 , 	&op_cp_r_q_cb	}, // CP_R_Q
-	{LOG_STRING(OPCODE_FAN_R_I),	0xD80,	MASK_6B,	4, 			0x030, 		7 , 	&op_fan_r_i_cb	}, // FAN_R_I
-	{LOG_STRING(OPCODE_FAN_R_Q),	0xF10,	MASK_8B,	2, 			0x00C, 		7 , 	&op_fan_r_q_cb	}, // FAN_R_Q
-	{LOG_STRING(OPCODE_RLC),		0xAF0,	MASK_8B,	0, 			0    , 		7 , 	&op_rlc_cb		}, // RLC
-	{LOG_STRING(OPCODE_RRC),		0xE8C,	MASK_10B,	0, 			0    , 		5 , 	&op_rrc_cb		}, // RRC
-	{LOG_STRING(OPCODE_INC_MN),		0xF60,	MASK_8B,	0, 			0    , 		7 , 	&op_inc_mn_cb	}, // INC_MN
-	{LOG_STRING(OPCODE_DEC_MN),		0xF70,	MASK_8B,	0, 			0    , 		7 , 	&op_dec_mn_cb	}, // DEC_MN
-	{LOG_STRING(OPCODE_ACPX),		0xF28,	MASK_10B,	0, 			0    , 		7 , 	&op_acpx_cb		}, // ACPX
-	{LOG_STRING(OPCODE_ACPY),		0xF2C,	MASK_10B,	0, 			0    , 		7 , 	&op_acpy_cb		}, // ACPY
-	{LOG_STRING(OPCODE_SCPX),		0xF38,	MASK_10B,	0, 			0    , 		7 , 	&op_scpx_cb		}, // SCPX
-	{LOG_STRING(OPCODE_SCPY),		0xF3C,	MASK_10B,	0, 			0    , 		7 , 	&op_scpy_cb		}, // SCPY
-	{LOG_STRING(OPCODE_NOT),		0xD0F,	0xFCF,		4, 			0    , 		7 , 	&op_not_cb		}, // NOT
 
-	{NULL, 0, 0, 0, 0, 0, NULL},
+#define X(log, code, mask, shift_arg0, mask_arg0, cycles, func) {LOG_STRING(log), code, mask, shift_arg0, mask_arg0, cycles, func},
+static const op_t __wf_rom ops[] = 
+{
+	OPCODE_LIST
+	{NULL, 0, 0, 0, 0, 0, NULL}
 };
+#undef X
 
+#define X(log, code, mask, shift_arg0, mask_arg0, cycles, func) [code] = __COUNTER__,
+static uint8_t __wf_rom opcode_table[] = 
+{
+	OPCODE_LIST
+};
+#undef X
 
 static timestamp_t wait_for_cycles(timestamp_t since, u8_t cycles) {
 	u32_t ticks_pending;
@@ -1868,22 +1772,22 @@ static void process_interrupts(void)
 	}
 }
 
-#ifdef ENABLE_LOGS
-static void print_state(u8_t op_num, u12_t op, u13_t addr)
+static void print_state(const op_t __wf_rom* opcode, u12_t op, u13_t addr)
 {
+#ifdef ENABLE_LOGS
 	u8_t i;
 
 	if (!g_hal->is_log_enabled(LOG_CPU) && g_hal->is_log_enabled(LOG_OP)) 
 	{
-		if (ops[op_num].mask_arg0 != 0) 
+		if (opcode->mask_arg0 != 0) 
 		{
 			/* Two arguments */
-			PRINT_LOG(LOG_OP, ops[op_num].log, (op & ops[op_num].mask_arg0) >> ops[op_num].shift_arg0, op & ~(ops[op_num].mask | ops[op_num].mask_arg0));
+			PRINT_LOG(LOG_OP, opcode->log, (op & opcode->mask_arg0) >> opcode->shift_arg0, op & ~(opcode->mask | opcode->mask_arg0));
 		} 
 		else 
 		{
 			/* One argument */
-			PRINT_LOG(LOG_OP, ops[op_num].log, (op & ~ops[op_num].mask) >> ops[op_num].shift_arg0);
+			PRINT_LOG(LOG_OP, opcode->log, (op & ~opcode->mask) >> opcode->shift_arg0);
 		}
 		PRINT_LOG(LOG_OP, LOG_OP_ADDR, addr);
 		return;
@@ -1893,12 +1797,12 @@ static void print_state(u8_t op_num, u12_t op, u13_t addr)
 
 		PRINT_LOG(LOG_CPU, LOG_CPU_ARROW);
 
-	if (ops[op_num].mask_arg0 != 0) {
+	if (opcode->mask_arg0 != 0) {
 		/* Two arguments */
-		PRINT_LOG(LOG_OP, ops[op_num].log, (op & ops[op_num].mask_arg0) >> ops[op_num].shift_arg0, op & ~(ops[op_num].mask | ops[op_num].mask_arg0));
+		PRINT_LOG(LOG_OP, opcode->log, (op & opcode->mask_arg0) >> opcode->shift_arg0, op & ~(opcode->mask | opcode->mask_arg0));
 	} else {
 		/* One argument */
-		PRINT_LOG(LOG_OP, ops[op_num].log, (op & ~ops[op_num].mask) >> ops[op_num].shift_arg0);
+		PRINT_LOG(LOG_OP, opcode->log, (op & ~opcode->mask) >> opcode->shift_arg0);
 	}
 
 	PRINT_LOG(LOG_CPU, LOG_CPU_OPCODE, op);
@@ -1906,8 +1810,8 @@ static void print_state(u8_t op_num, u12_t op, u13_t addr)
 		PRINT_LOG(LOG_CPU, LOG_CPU_STR, ((op >> (11 - i)) & 0x1) ? "1" : "0");
 	}
 	PRINT_LOG(LOG_CPU, LOG_CPU_STATS, pc, sp, np, x, y, a, b, flags);
+#endif // ENABLE_LOGS
 }
-#endif
 
 static void handle_timers(void)
 {
@@ -2059,36 +1963,63 @@ bool_t cpu_init(const u12_t __wf_rom* program, breakpoint_t *breakpoints, u32_t 
 void cpu_release(void)
 {
 }
-#define SWAP16(x)  (((x) << 8) | ((x) >> 8))
+
 int cpu_step(void)
 {
 	u12_t op;
-	u8_t i;
 	breakpoint_t *bp = g_breakpoints;
+	const op_t __wf_rom* opcode = NULL;
 	static u8_t previous_cycles = 0;
 
-	if (!cpu_halted) {
+	if (!cpu_halted) 
+	{
 		op = g_program[pc];
-		//op = SWAP16(op);
-
+		
 		/* Lookup the OP code */
-		for (i = 0; ops[i].cb != NULL; i++) {
-			if ((op & ops[i].mask) == ops[i].code) {
-				break;
-			}
+		opcode = ops + opcode_table[op & MASK_4B];
+		if ((op & opcode->mask) == opcode->code) 
+		{
+			goto HAVE_OPCODE;
 		}
 
-		if (ops[i].cb == NULL) {
-			PRINT_LOG(LOG_ERROR, LOG_ERROR_UNKNOWN_OPCODE, op, pc);
-			return 1;
+		opcode = ops + opcode_table[op & MASK_6B];
+		if ((op & opcode->mask) == opcode->code) 
+		{
+			goto HAVE_OPCODE;
 		}
 
+		opcode = ops + opcode_table[op & MASK_7B];
+		if ((op & opcode->mask) == opcode->code) 
+		{
+			goto HAVE_OPCODE;
+		}
+
+		opcode = ops + opcode_table[op & MASK_8B];
+		if ((op & opcode->mask) == opcode->code) 
+		{
+			goto HAVE_OPCODE;
+		}
+
+		opcode = ops + opcode_table[op & MASK_10B];
+		if ((op & opcode->mask) == opcode->code) 
+		{
+			goto HAVE_OPCODE;
+		}
+
+		opcode = ops + opcode_table[op & MASK_12B];
+		if ((op & opcode->mask) == opcode->code) 
+		{
+			goto HAVE_OPCODE;
+		}
+
+		PRINT_LOG(LOG_ERROR, LOG_ERROR_UNKNOWN_OPCODE, op, pc);
+		return 1;
+
+HAVE_OPCODE:
 		next_pc = (pc + 1) & 0x1FFF;
 		
-#ifdef ENABLE_LOGS
 		/* Display the operation along with the current state of the processor */
-		print_state(i, op, pc);
-#endif // ENABLE_LOGS
+		print_state(opcode, op, pc);
 
 		/* Match the speed of the real processor
 		* NOTE: For better accuracy, the final wait should happen here, however
@@ -2097,25 +2028,29 @@ int cpu_step(void)
 		ref_ts = wait_for_cycles(ref_ts, previous_cycles);
 
 		/* Process the OP code */
-		if (ops[i].cb != NULL) {
-			if (ops[i].mask_arg0 != 0) {
-				/* Two arguments */
-				ops[i].cb((op & ops[i].mask_arg0) >> ops[i].shift_arg0, op & ~(ops[i].mask | ops[i].mask_arg0));
-			} else {
-				/* One arguments */
-				ops[i].cb((op & ~ops[i].mask) >> ops[i].shift_arg0, 0);
-			}
+		if (opcode->mask_arg0 != 0) 
+		{
+			/* Two arguments */
+			opcode->cb((op & opcode->mask_arg0) >> opcode->shift_arg0, op & ~(opcode->mask | opcode->mask_arg0));
+		} 
+		else 
+		{
+			/* One arguments */
+			opcode->cb((op & ~opcode->mask) >> opcode->shift_arg0, 0);
 		}
 
 		/* Prepare for the next instruction */
 		pc = next_pc;
-		previous_cycles = ops[i].cycles;
+		previous_cycles = opcode->cycles;
 
-		if (i != 0) {
+		if (opcode->code != 0xE40) 
+		{
 			/* OP code is not PSET, reset NP */
 			np = (pc >> 8) & 0x1F;
 		}
-	} else {
+	}
+	else 
+	{
 		/* Wait at least once for the duration of a HALT and as long as required
 		 * (to increment the tick counter), but make sure there will be no wait once
 		 * the CPU is restarted
@@ -2126,18 +2061,19 @@ int cpu_step(void)
 
 	handle_timers();
 
-// i gets flagged as potentially uninitialized.  however when we reach this code we know that it is set(the first loop)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 	/* Check if there is any pending interrupt */
-	if (I && i != 0 && i != 58) { // Do not process interrupts after a PSET or EI operation
+	if (I && 
+		opcode->code != 0xE40 && 
+		opcode->code != 0xF48) 
+	{ 
 		process_interrupts();
 	}
-#pragma GCC diagnostic pop
-
+	
 	/* Check if we could pause the execution */
-	while (!cpu_halted && bp != NULL) {
-		if (bp->addr == pc) {
+	while (!cpu_halted && bp != NULL) 
+	{
+		if (bp->addr == pc) 
+		{
 			return 1;
 		}
 
