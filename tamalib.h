@@ -35,7 +35,7 @@
 #define tamalib_free_bp(list)				cpu_free_bp(list)
 
 void tamalib_release(void);
-bool_t tamalib_init(const u12_t __wf_rom* program, breakpoint_t *breakpoints, u32_t freq);
+bool_t tamalib_init(const u12_t __wf_rom* program, u32_t freq);
 
 void tamalib_set_framerate(u8_t framerate);
 u8_t tamalib_get_framerate(void);

@@ -334,8 +334,6 @@ static const char __wf_rom* interrupt_names[] =
 };
 #endif // ENABLE_LOGS
 
-static breakpoint_t *g_breakpoints = NULL;
-
 static u32_t clk_timer_2hz_timestamp = 0; // in ticks
 static u32_t clk_timer_4hz_timestamp = 0; // in ticks
 static u32_t clk_timer_8hz_timestamp = 0; // in ticks
@@ -388,42 +386,6 @@ static state_t cpu_state = {
 
 	.memory = memory,
 };
-
-
-void cpu_add_bp(breakpoint_t **list, u13_t addr)
-{
-	breakpoint_t *bp;
-
-	bp = (breakpoint_t *) g_hal->malloc(sizeof(breakpoint_t));
-	if (!bp) {
-		PRINT_LOG(LOG_ERROR, LOG_ERROR_BREAKPOINT, addr);
-		return;
-	}
-
-	bp->addr = addr;
-
-	if (*list != NULL) {
-		bp->next = *list;
-	} else {
-		/* List is empty */
-		bp->next = NULL;
-	}
-
-	*list = bp;
-}
-
-void cpu_free_bp(breakpoint_t **list)
-{
-	breakpoint_t *bp = *list, *tmp;
-
-	while (bp != NULL) {
-		tmp = bp->next;
-		g_hal->free(bp);
-		bp = tmp;
-	}
-
-	*list = NULL;
-}
 
 state_t * cpu_get_state(void)
 {
@@ -1949,10 +1911,9 @@ void cpu_reset(void)
 	cpu_sync_ref_timestamp();
 }
 
-bool_t cpu_init(const u12_t __wf_rom* program, breakpoint_t *breakpoints, u32_t freq)
+bool_t cpu_init(const u12_t __wf_rom* program, u32_t freq)
 {
 	g_program = program;
-	g_breakpoints = breakpoints;
 	ts_freq = freq;
 
 	cpu_reset();
@@ -1967,7 +1928,6 @@ void cpu_release(void)
 int cpu_step(void)
 {
 	u12_t op;
-	breakpoint_t *bp = g_breakpoints;
 	const op_t __wf_rom* opcode = NULL;
 	static u8_t previous_cycles = 0;
 
@@ -2067,17 +2027,6 @@ HAVE_OPCODE:
 		opcode->code != 0xF48) 
 	{ 
 		process_interrupts();
-	}
-	
-	/* Check if we could pause the execution */
-	while (!cpu_halted && bp != NULL) 
-	{
-		if (bp->addr == pc) 
-		{
-			return 1;
-		}
-
-		bp = bp->next;
 	}
 
 	return 0;

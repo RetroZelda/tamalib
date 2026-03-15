@@ -124,13 +124,8 @@
 #ifdef ENABLE_LOGS
 #define PRINT_LOG(type, fmt, ...) g_hal->log((type), (fmt), ##__VA_ARGS__);
 #else
-#define PRINT_LOG(type, fmt, ...) {}
+#define PRINT_LOG(type, fmt, ...) do { } while (0)
 #endif // ENABLE_LOGS
-
-typedef struct breakpoint {
-	u13_t addr;
-	struct breakpoint *next;
-} breakpoint_t;
 
 /* Pins (TODO: add other pins) */
 typedef enum {
@@ -197,10 +192,6 @@ typedef struct {
 	MEM_BUFFER_TYPE *memory;
 } state_t;
 
-
-void cpu_add_bp(breakpoint_t **list, u13_t addr);
-void cpu_free_bp(breakpoint_t **list);
-
 state_t * cpu_get_state(void);
 
 void cpu_set_input_pin(pin_t pin, pin_state_t state);
@@ -211,7 +202,7 @@ void cpu_refresh_hw(void);
 
 void cpu_reset(void);
 
-bool_t cpu_init(const u12_t __wf_rom* program, breakpoint_t *breakpoints, u32_t freq);
+bool_t cpu_init(const u12_t __wf_rom* program, u32_t freq);
 void cpu_release(void);
 
 int cpu_step(void);
