@@ -33,6 +33,7 @@ typedef enum {
 	LOG_CPU		= (0x1 << 3),
 	LOG_INT		= (0x1 << 4),
 	LOG_OP		= (0x1 << 5),
+	LOG_PIXEL 	= (0x1 << 6)
 } log_level_t;
 
 /* The Hardware Abstraction Layer
