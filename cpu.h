@@ -121,6 +121,12 @@
 #define MEM_BUFFER_TYPE				u4_t
 #endif
 
+#ifdef ENABLE_LOGS
+#define PRINT_LOG(type, fmt, ...) g_hal->log((type), (fmt), ##__VA_ARGS__);
+#else
+#define PRINT_LOG(type, fmt, ...) {}
+#endif // ENABLE_LOGS
+
 typedef struct breakpoint {
 	u13_t addr;
 	struct breakpoint *next;
@@ -161,7 +167,7 @@ typedef struct {
 } interrupt_t;
 
 typedef struct {
-	u13_t *pc_register;
+	u13_t *pc;
 	u12_t *x;
 	u12_t *y;
 	u4_t *a;
