@@ -42,11 +42,11 @@
 #define MASK_10B				0xFFC
 #define MASK_12B				0xFFF
 
-#define PCS					(pc & 0xFF)
-#define PCSL					(pc & 0xF)
-#define PCSH					((pc >> 4) & 0xF)
-#define PCP					((pc >> 8) & 0xF)
-#define PCB					((pc >> 12) & 0x1)
+#define PCS					(pc_register & 0xFF)
+#define PCSL					(pc_register & 0xF)
+#define PCSH					((pc_register >> 4) & 0xF)
+#define PCP					((pc_register >> 8) & 0xF)
+#define PCB					((pc_register >> 12) & 0x1)
 #define TO_PC(bank, page, step)			((step & 0xFF) | ((page & 0xF) << 8) | (bank & 0x1) << 12)
 #define NBP					((np >> 4) & 0x1)
 #define NPP					(np & 0xF)
@@ -142,13 +142,15 @@ const char __wf_rom LOG_ERROR_UNIMPLEMENTED_IO_READ[] = "Read from unimplemented
 const char __wf_rom LOG_ERROR_UNIMPLEMENTED_IO_WRITE[] = "Write 0x%X to unimplemented I/O 0x%03X - PC = 0x%04X\n";
 const char __wf_rom LOG_ERROR_INVALID_MEMORY_READ[] = "Read from invalid memory address 0x%03X - PC = 0x%04X\n";
 const char __wf_rom LOG_ERROR_INVALID_MEMORY_WRITE[] = "Write 0x%X to invalid memory address 0x%03X - PC = 0x%04X\n";
-const char __wf_rom LOG_ERROR_UNKNOWN_OPCODE[] = "Unknown op-code 0x%X (pc = 0x%04X)\n";
-const char __wf_rom LOG_MEMORY_RAM[] = "RAM              - ";
-const char __wf_rom LOG_MEMORY_DISPLAY[] = "Display Memory %d - ";
-const char __wf_rom LOG_MEMORY_IO[] = "I/O              - ";
-const char __wf_rom LOG_MEMORY_DATA_READ[] = "Read  0x%X - Address 0x%03X - PC = 0x%04X\n";
-const char __wf_rom LOG_MEMORY_DATA_WRITE[] = "Write 0x%X - Address 0x%03X - PC = 0x%04X\n";
-const char __wf_rom LOG_INTERRUPT_TRIGGERED[] = "Interrupt %s (%u) triggered\n";
+const char __wf_rom LOG_ERROR_UNKNOWN_OPCODE[] = "Unknown op-code 0x%X (pc_register = 0x%04X)\n";
+const char __wf_rom LOG_MEMORY_RAM[] = "RAM\n";
+const char __wf_rom LOG_MEMORY_DISPLAY[] = "Display Memory %d\n";
+const char __wf_rom LOG_MEMORY_IO[] = "I/O\n";
+const char __wf_rom LOG_MEMORY_DATA_READ[] = "\tRead  0x%X\n";
+const char __wf_rom LOG_MEMORY_DATA_WRITE[] = "\tWrite 0x%X\n";
+const char __wf_rom LOG_MEMORY_DATA_ADDRESS[] = "\tAddress 0x%03X\n";
+const char __wf_rom LOG_MEMORY_DATA_PC[] = "\tPC = 0x%04X\n";
+const char __wf_rom LOG_INTERRUPT_TRIGGERED[] = "Interrupt triggered:\n\t%s (%u)";
 const char __wf_rom LOG_CPU_ADDR[] = "0x%04X: ";
 const char __wf_rom LOG_CPU_SPACE[] = "  ";
 const char __wf_rom LOG_CPU_ARROW[] = "<<< ";
@@ -158,6 +160,7 @@ const char __wf_rom LOG_CPU_STATS[] = " - PC = 0x%04X, SP = 0x%02X, NP = 0x%02X,
 const char __wf_rom LOG_INFO_BUZZER[] = "Output/Buzzer: 0x%X\n";
 const char __wf_rom LOG_INFO_OS3[] = "Switch to OSC3\n";
 const char __wf_rom LOG_INFO_OS1[] = "Switch to OSC1\n";
+const char __wf_rom LOG_OP_ADDR[] = "\tADDR: 0x%04X\n";
 
 const char __wf_rom INTERUPT_PROG_TIMER_SLOT[] = "INT_PROG_TIMER_SLOT";
 const char __wf_rom INTERUPT_SERIAL_SLOT[] = "INT_SERIAL_SLOT";
@@ -290,7 +293,7 @@ typedef struct {
 } input_port_t;
 
 /* Registers */
-static u13_t pc, next_pc;
+static u13_t pc_register, next_pc;
 static u12_t x, y;
 static u4_t a, b;
 static u5_t np;
@@ -299,7 +302,7 @@ static u8_t sp;
 /* Flags */
 static u4_t flags;
 
-static const u12_t *g_program = NULL;
+static const u12_t __wf_rom* g_program = NULL;
 static MEM_BUFFER_TYPE memory[MEM_BUFFER_SIZE];
 
 static input_port_t inputs[INPUT_PORT_NUM] = {{0}};
@@ -352,7 +355,7 @@ static u32_t scaled_cycle_accumulator = 0;
 
 
 static state_t cpu_state = {
-	.pc = &pc,
+	.pc_register = &pc_register,
 	.x = &x,
 	.y = &y,
 	.a = &a,
@@ -624,7 +627,7 @@ static u4_t get_io(u12_t n)
 			break;
 
 		default:
-			g_hal->log(LOG_ERROR, LOG_ERROR_UNIMPLEMENTED_IO_READ, n, pc);
+			g_hal->log(LOG_ERROR, LOG_ERROR_UNIMPLEMENTED_IO_READ, n, pc_register);
 	}
 
 	return 0;
@@ -771,7 +774,7 @@ static void set_io(u12_t n, u4_t v)
 			break;
 
 		default:
-			g_hal->log(LOG_ERROR, LOG_ERROR_UNIMPLEMENTED_IO_WRITE, v, n, pc);
+			g_hal->log(LOG_ERROR, LOG_ERROR_UNIMPLEMENTED_IO_WRITE, v, n, pc_register);
 	}
 }
 
@@ -809,11 +812,13 @@ static u4_t get_memory(u12_t n)
 		g_hal->log(LOG_MEMORY, LOG_MEMORY_IO);
 		res = get_io(n);
 	} else {
-		g_hal->log(LOG_ERROR, LOG_ERROR_INVALID_MEMORY_READ, n, pc);
+		g_hal->log(LOG_ERROR, LOG_ERROR_INVALID_MEMORY_READ, n, pc_register);
 		return 0;
 	}
 
-	g_hal->log(LOG_MEMORY, LOG_MEMORY_DATA_READ, res, n, pc);
+	g_hal->log(LOG_MEMORY, LOG_MEMORY_DATA_READ, res);
+	g_hal->log(LOG_MEMORY, LOG_MEMORY_DATA_ADDRESS, n);
+	g_hal->log(LOG_MEMORY, LOG_MEMORY_DATA_PC, pc_register);
 
 	return res;
 }
@@ -841,11 +846,13 @@ static void set_memory(u12_t n, u4_t v)
 		set_io(n, v);
 		g_hal->log(LOG_MEMORY, LOG_MEMORY_IO);
 	} else {
-		g_hal->log(LOG_ERROR, LOG_ERROR_INVALID_MEMORY_WRITE, v, n, pc);
+		g_hal->log(LOG_ERROR, LOG_ERROR_INVALID_MEMORY_WRITE, v, n, pc_register);
 		return;
 	}
 
-	g_hal->log(LOG_MEMORY, LOG_MEMORY_DATA_WRITE, v, n, pc);
+	g_hal->log(LOG_MEMORY, LOG_MEMORY_DATA_WRITE, v);
+	g_hal->log(LOG_MEMORY, LOG_MEMORY_DATA_ADDRESS, n);
+	g_hal->log(LOG_MEMORY, LOG_MEMORY_DATA_PC, pc_register);
 }
 
 void cpu_refresh_hw(void)
@@ -955,7 +962,7 @@ static void op_jpba_cb(u8_t arg0, u8_t arg1)
 
 static void op_call_cb(u8_t arg0, u8_t arg1)
 {
-	pc = (pc + 1) & 0x1FFF; // This does not actually change the PC register
+	pc_register = (pc_register + 1) & 0x1FFF; // This does not actually change the PC register
 	SET_M((sp - 1) & 0xFF, PCP);
 	SET_M((sp - 2) & 0xFF, PCSH);
 	SET_M((sp - 3) & 0xFF, PCSL);
@@ -966,7 +973,7 @@ static void op_call_cb(u8_t arg0, u8_t arg1)
 
 static void op_calz_cb(u8_t arg0, u8_t arg1)
 {
-	pc = (pc + 1) & 0x1FFF; // This does not actually change the PC register
+	pc_register = (pc_register + 1) & 0x1FFF; // This does not actually change the PC register
 	SET_M((sp - 1) & 0xFF, PCP);
 	SET_M((sp - 2) & 0xFF, PCSH);
 	SET_M((sp - 3) & 0xFF, PCSL);
@@ -1720,114 +1727,115 @@ static void op_not_cb(u8_t arg0, u8_t arg1)
 
 /* The E0C6S46 supported instructions */
 static const op_t __wf_rom ops[] = {
-	{OPCODE_PSET, 0xE40, MASK_7B , 0, 0    , 5 , &op_pset_cb}, // PSET
-	{OPCODE_JP, 0x000, MASK_4B , 0, 0    , 5 , &op_jp_cb}, // JP
-	{OPCODE_JP_C, 0x200, MASK_4B , 0, 0    , 5 , &op_jp_c_cb}, // JP_C
-	{OPCODE_JP_NC, 0x300, MASK_4B , 0, 0    , 5 , &op_jp_nc_cb}, // JP_NC
-	{OPCODE_JP_Z, 0x600, MASK_4B , 0, 0    , 5 , &op_jp_z_cb}, // JP_Z
-	{OPCODE_JP_NZ, 0x700, MASK_4B , 0, 0    , 5 , &op_jp_nz_cb}, // JP_NZ
-	{OPCODE_JPBA, 0xFE8, MASK_12B, 0, 0    , 5 , &op_jpba_cb}, // JPBA
-	{OPCODE_CALL, 0x400, MASK_4B , 0, 0    , 7 , &op_call_cb}, // CALL
-	{OPCODE_CALZ, 0x500, MASK_4B , 0, 0    , 7 , &op_calz_cb}, // CALZ
-	{OPCODE_RET, 0xFDF, MASK_12B, 0, 0    , 7 , &op_ret_cb}, // RET
-	{OPCODE_RETS, 0xFDE, MASK_12B, 0, 0    , 12, &op_rets_cb}, // RETS
-	{OPCODE_RETD, 0x100, MASK_4B , 0, 0    , 12, &op_retd_cb}, // RETD
-	{OPCODE_NOP5, 0xFFB, MASK_12B, 0, 0    , 5 , &op_nop5_cb}, // NOP5
-	{OPCODE_NOP7, 0xFFF, MASK_12B, 0, 0    , 7 , &op_nop7_cb}, // NOP7
-	{OPCODE_HALT, 0xFF8, MASK_12B, 0, 0    , 5 , &op_halt_cb}, // HALT
-	{OPCODE_INC_X, 0xEE0, MASK_12B, 0, 0    , 5 , &op_inc_x_cb}, // INC_X
-	{OPCODE_INC_Y, 0xEF0, MASK_12B, 0, 0    , 5 , &op_inc_y_cb}, // INC_Y
-	{OPCODE_LD_X, 0xB00, MASK_4B , 0, 0    , 5 , &op_ld_x_cb}, // LD_X
-	{OPCODE_LD_Y, 0x800, MASK_4B , 0, 0    , 5 , &op_ld_y_cb}, // LD_Y
-	{OPCODE_LD_XP_R, 0xE80, MASK_10B, 0, 0    , 5 , &op_ld_xp_r_cb}, // LD_XP_R
-	{OPCODE_LD_XH_R, 0xE84, MASK_10B, 0, 0    , 5 , &op_ld_xh_r_cb}, // LD_XH_R
-	{OPCODE_LD_XL_R, 0xE88, MASK_10B, 0, 0    , 5 , &op_ld_xl_r_cb}, // LD_XL_R
-	{OPCODE_LD_YP_R, 0xE90, MASK_10B, 0, 0    , 5 , &op_ld_yp_r_cb}, // LD_YP_R
-	{OPCODE_LD_YH_R, 0xE94, MASK_10B, 0, 0    , 5 , &op_ld_yh_r_cb}, // LD_YH_R
-	{OPCODE_LD_YL_R, 0xE98, MASK_10B, 0, 0    , 5 , &op_ld_yl_r_cb}, // LD_YL_R
-	{OPCODE_LD_R_XP, 0xEA0, MASK_10B, 0, 0    , 5 , &op_ld_r_xp_cb}, // LD_R_XP
-	{OPCODE_LD_R_XH, 0xEA4, MASK_10B, 0, 0    , 5 , &op_ld_r_xh_cb}, // LD_R_XH
-	{OPCODE_LD_R_XL, 0xEA8, MASK_10B, 0, 0    , 5 , &op_ld_r_xl_cb}, // LD_R_XL
-	{OPCODE_LD_R_YP, 0xEB0, MASK_10B, 0, 0    , 5 , &op_ld_r_yp_cb}, // LD_R_YP
-	{OPCODE_LD_R_YH, 0xEB4, MASK_10B, 0, 0    , 5 , &op_ld_r_yh_cb}, // LD_R_YH
-	{OPCODE_LD_R_YL, 0xEB8, MASK_10B, 0, 0    , 5 , &op_ld_r_yl_cb}, // LD_R_YL
-	{OPCODE_ADC_XH, 0xA00, MASK_8B , 0, 0    , 7 , &op_adc_xh_cb}, // ADC_XH
-	{OPCODE_ADC_XL, 0xA10, MASK_8B , 0, 0    , 7 , &op_adc_xl_cb}, // ADC_XL
-	{OPCODE_ADC_YH, 0xA20, MASK_8B , 0, 0    , 7 , &op_adc_yh_cb}, // ADC_YH
-	{OPCODE_ADC_YL, 0xA30, MASK_8B , 0, 0    , 7 , &op_adc_yl_cb}, // ADC_YL
-	{OPCODE_CP_XH, 0xA40, MASK_8B , 0, 0    , 7 , &op_cp_xh_cb}, // CP_XH
-	{OPCODE_CP_XL, 0xA50, MASK_8B , 0, 0    , 7 , &op_cp_xl_cb}, // CP_XL
-	{OPCODE_CP_YH, 0xA60, MASK_8B , 0, 0    , 7 , &op_cp_yh_cb}, // CP_YH
-	{OPCODE_CP_YL, 0xA70, MASK_8B , 0, 0    , 7 , &op_cp_yl_cb}, // CP_YL
-	{OPCODE_LD_R_I, 0xE00, MASK_6B , 4, 0x030, 5 , &op_ld_r_i_cb}, // LD_R_I
-	{OPCODE_LD_R_Q, 0xEC0, MASK_8B , 2, 0x00C, 5 , &op_ld_r_q_cb}, // LD_R_Q
-	{OPCODE_LD_A_MN, 0xFA0, MASK_8B , 0, 0    , 5 , &op_ld_a_mn_cb}, // LD_A_MN
-	{OPCODE_LD_B_MN, 0xFB0, MASK_8B , 0, 0    , 5 , &op_ld_b_mn_cb}, // LD_B_MN
-	{OPCODE_LD_MN_A, 0xF80, MASK_8B , 0, 0    , 5 , &op_ld_mn_a_cb}, // LD_MN_A
-	{OPCODE_LD_MN_B, 0xF90, MASK_8B , 0, 0    , 5 , &op_ld_mn_b_cb}, // LD_MN_B
-	{OPCODE_LDPX_MX, 0xE60, MASK_8B , 0, 0    , 5 , &op_ldpx_mx_cb}, // LDPX_MX
-	{OPCODE_LDPX_R, 0xEE0, MASK_8B , 2, 0x00C, 5 , &op_ldpx_r_cb}, // LDPX_R
-	{OPCODE_LDPY_MY, 0xE70, MASK_8B , 0, 0    , 5 , &op_ldpy_my_cb}, // LDPY_MY
-	{OPCODE_LDPY_R, 0xEF0, MASK_8B , 2, 0x00C, 5 , &op_ldpy_r_cb}, // LDPY_R
-	{OPCODE_LBPX, 0x900, MASK_4B , 0, 0    , 5 , &op_lbpx_cb}, // LBPX
-	{OPCODE_SET, 0xF40, MASK_8B , 0, 0    , 7 , &op_set_cb}, // SET
-	{OPCODE_RST, 0xF50, MASK_8B , 0, 0    , 7 , &op_rst_cb}, // RST
-	{OPCODE_SCF, 0xF41, MASK_12B, 0, 0    , 7 , &op_scf_cb}, // SCF
-	{OPCODE_RCF, 0xF5E, MASK_12B, 0, 0    , 7 , &op_rcf_cb}, // RCF
-	{OPCODE_SZF, 0xF42, MASK_12B, 0, 0    , 7 , &op_szf_cb}, // SZF
-	{OPCODE_RZF, 0xF5D, MASK_12B, 0, 0    , 7 , &op_rzf_cb}, // RZF
-	{OPCODE_SDF, 0xF44, MASK_12B, 0, 0    , 7 , &op_sdf_cb}, // SDF
-	{OPCODE_RDF, 0xF5B, MASK_12B, 0, 0    , 7 , &op_rdf_cb}, // RDF
-	{OPCODE_EI, 0xF48, MASK_12B, 0, 0    , 7 , &op_ei_cb}, // EI
-	{OPCODE_DI, 0xF57, MASK_12B, 0, 0    , 7 , &op_di_cb}, // DI
-	{OPCODE_INC_SP, 0xFDB, MASK_12B, 0, 0    , 5 , &op_inc_sp_cb}, // INC_SP
-	{OPCODE_DEC_SP, 0xFCB, MASK_12B, 0, 0    , 5 , &op_dec_sp_cb}, // DEC_SP
-	{OPCODE_PUSH_R, 0xFC0, MASK_10B, 0, 0    , 5 , &op_push_r_cb}, // PUSH_R
-	{OPCODE_PUSH_XP, 0xFC4, MASK_12B, 0, 0    , 5 , &op_push_xp_cb}, // PUSH_XP
-	{OPCODE_PUSH_XH, 0xFC5, MASK_12B, 0, 0    , 5 , &op_push_xh_cb}, // PUSH_XH
-	{OPCODE_PUSH_XL, 0xFC6, MASK_12B, 0, 0    , 5 , &op_push_xl_cb}, // PUSH_XL
-	{OPCODE_PUSH_YP, 0xFC7, MASK_12B, 0, 0    , 5 , &op_push_yp_cb}, // PUSH_YP
-	{OPCODE_PUSH_YH, 0xFC8, MASK_12B, 0, 0    , 5 , &op_push_yh_cb}, // PUSH_YH
-	{OPCODE_PUSH_YL, 0xFC9, MASK_12B, 0, 0    , 5 , &op_push_yl_cb}, // PUSH_YL
-	{OPCODE_PUSH_F, 0xFCA, MASK_12B, 0, 0    , 5 , &op_push_f_cb}, // PUSH_F
-	{OPCODE_POP_R, 0xFD0, MASK_10B, 0, 0    , 5 , &op_pop_r_cb}, // POP_R
-	{OPCODE_POP_XP, 0xFD4, MASK_12B, 0, 0    , 5 , &op_pop_xp_cb}, // POP_XP
-	{OPCODE_POP_XH, 0xFD5, MASK_12B, 0, 0    , 5 , &op_pop_xh_cb}, // POP_XH
-	{OPCODE_POP_XL, 0xFD6, MASK_12B, 0, 0    , 5 , &op_pop_xl_cb}, // POP_XL
-	{OPCODE_POP_YP, 0xFD7, MASK_12B, 0, 0    , 5 , &op_pop_yp_cb}, // POP_YP
-	{OPCODE_POP_YH, 0xFD8, MASK_12B, 0, 0    , 5 , &op_pop_yh_cb}, // POP_YH
-	{OPCODE_POP_YL, 0xFD9, MASK_12B, 0, 0    , 5 , &op_pop_yl_cb}, // POP_YL
-	{OPCODE_POP_F, 0xFDA, MASK_12B, 0, 0    , 5 , &op_pop_f_cb}, // POP_F
-	{OPCODE_LD_SPH_R, 0xFE0, MASK_10B, 0, 0    , 5 , &op_ld_sph_r_cb}, // LD_SPH_R
-	{OPCODE_LD_SPL_R, 0xFF0, MASK_10B, 0, 0    , 5 , &op_ld_spl_r_cb}, // LD_SPL_R
-	{OPCODE_LD_R_SPH, 0xFE4, MASK_10B, 0, 0    , 5 , &op_ld_r_sph_cb}, // LD_R_SPH
-	{OPCODE_LD_R_SPL, 0xFF4, MASK_10B, 0, 0    , 5 , &op_ld_r_spl_cb}, // LD_R_SPL
-	{OPCODE_ADD_R_I, 0xC00, MASK_6B , 4, 0x030, 7 , &op_add_r_i_cb}, // ADD_R_I
-	{OPCODE_ADD_R_Q, 0xA80, MASK_8B , 2, 0x00C, 7 , &op_add_r_q_cb}, // ADD_R_Q
-	{OPCODE_ADC_R_I, 0xC40, MASK_6B , 4, 0x030, 7 , &op_adc_r_i_cb}, // ADC_R_I
-	{OPCODE_ADC_R_Q, 0xA90, MASK_8B , 2, 0x00C, 7 , &op_adc_r_q_cb}, // ADC_R_Q
-	{OPCODE_SUB, 0xAA0, MASK_8B , 2, 0x00C, 7 , &op_sub_cb}, // SUB
-	{OPCODE_SBC_R_I, 0xD40, MASK_6B , 4, 0x030, 7 , &op_sbc_r_i_cb}, // SBC_R_I
-	{OPCODE_SBC_R_Q, 0xAB0, MASK_8B , 2, 0x00C, 7 , &op_sbc_r_q_cb}, // SBC_R_Q
-	{OPCODE_AND_R_I, 0xC80, MASK_6B , 4, 0x030, 7 , &op_and_r_i_cb}, // AND_R_I
-	{OPCODE_AND_R_Q, 0xAC0, MASK_8B , 2, 0x00C, 7 , &op_and_r_q_cb}, // AND_R_Q
-	{OPCODE_OR_R_I, 0xCC0, MASK_6B , 4, 0x030, 7 , &op_or_r_i_cb}, // OR_R_I
-	{OPCODE_OR_R_Q, 0xAD0, MASK_8B , 2, 0x00C, 7 , &op_or_r_q_cb}, // OR_R_Q
-	{OPCODE_XOR_R_I, 0xD00, MASK_6B , 4, 0x030, 7 , &op_xor_r_i_cb}, // XOR_R_I
-	{OPCODE_XOR_R_Q, 0xAE0, MASK_8B , 2, 0x00C, 7 , &op_xor_r_q_cb}, // XOR_R_Q
-	{OPCODE_CP_R_I, 0xDC0, MASK_6B , 4, 0x030, 7 , &op_cp_r_i_cb}, // CP_R_I
-	{OPCODE_CP_R_Q, 0xF00, MASK_8B , 2, 0x00C, 7 , &op_cp_r_q_cb}, // CP_R_Q
-	{OPCODE_FAN_R_I, 0xD80, MASK_6B , 4, 0x030, 7 , &op_fan_r_i_cb}, // FAN_R_I
-	{OPCODE_FAN_R_Q, 0xF10, MASK_8B , 2, 0x00C, 7 , &op_fan_r_q_cb}, // FAN_R_Q
-	{OPCODE_RLC, 0xAF0, MASK_8B , 0, 0    , 7 , &op_rlc_cb}, // RLC
-	{OPCODE_RRC, 0xE8C, MASK_10B, 0, 0    , 5 , &op_rrc_cb}, // RRC
-	{OPCODE_INC_MN, 0xF60, MASK_8B , 0, 0    , 7 , &op_inc_mn_cb}, // INC_MN
-	{OPCODE_DEC_MN, 0xF70, MASK_8B , 0, 0    , 7 , &op_dec_mn_cb}, // DEC_MN
-	{OPCODE_ACPX, 0xF28, MASK_10B, 0, 0    , 7 , &op_acpx_cb}, // ACPX
-	{OPCODE_ACPY, 0xF2C, MASK_10B, 0, 0    , 7 , &op_acpy_cb}, // ACPY
-	{OPCODE_SCPX, 0xF38, MASK_10B, 0, 0    , 7 , &op_scpx_cb}, // SCPX
-	{OPCODE_SCPY, 0xF3C, MASK_10B, 0, 0    , 7 , &op_scpy_cb}, // SCPY
-	{OPCODE_NOT, 0xD0F, 0xFCF   , 4, 0    , 7 , &op_not_cb}, // NOT
+/*	 log				Code	mask		shift_arg0	mask_arg0	cycles	func			*/
+	{OPCODE_PSET,		0xE40,	MASK_7B,	0, 			0    , 		5 , 	&op_pset_cb		}, // PSET
+	{OPCODE_JP,			0x000,	MASK_4B,	0, 			0    , 		5 , 	&op_jp_cb		}, // JP
+	{OPCODE_JP_C,		0x200,	MASK_4B,	0, 			0    , 		5 , 	&op_jp_c_cb		}, // JP_C
+	{OPCODE_JP_NC,		0x300,	MASK_4B,	0, 			0    , 		5 , 	&op_jp_nc_cb	}, // JP_NC
+	{OPCODE_JP_Z,		0x600,	MASK_4B,	0, 			0    , 		5 , 	&op_jp_z_cb		}, // JP_Z
+	{OPCODE_JP_NZ,		0x700,	MASK_4B,	0, 			0    , 		5 , 	&op_jp_nz_cb	}, // JP_NZ
+	{OPCODE_JPBA,		0xFE8,	MASK_12B,	0, 			0    , 		5 , 	&op_jpba_cb		}, // JPBA
+	{OPCODE_CALL,		0x400,	MASK_4B,	0, 			0    , 		7 , 	&op_call_cb		}, // CALL
+	{OPCODE_CALZ,		0x500,	MASK_4B,	0, 			0    , 		7 , 	&op_calz_cb		}, // CALZ
+	{OPCODE_RET,		0xFDF,	MASK_12B,	0, 			0    , 		7 , 	&op_ret_cb		}, // RET
+	{OPCODE_RETS,		0xFDE,	MASK_12B,	0, 			0    , 		12, 	&op_rets_cb		}, // RETS
+	{OPCODE_RETD,		0x100,	MASK_4B,	0, 			0    , 		12, 	&op_retd_cb		}, // RETD
+	{OPCODE_NOP5,		0xFFB,	MASK_12B,	0, 			0    , 		5 , 	&op_nop5_cb		}, // NOP5
+	{OPCODE_NOP7,		0xFFF,	MASK_12B,	0, 			0    , 		7 , 	&op_nop7_cb		}, // NOP7
+	{OPCODE_HALT,		0xFF8,	MASK_12B,	0, 			0    , 		5 , 	&op_halt_cb		}, // HALT
+	{OPCODE_INC_X,		0xEE0,	MASK_12B,	0, 			0    , 		5 , 	&op_inc_x_cb	}, // INC_X
+	{OPCODE_INC_Y,		0xEF0,	MASK_12B,	0, 			0    , 		5 , 	&op_inc_y_cb	}, // INC_Y
+	{OPCODE_LD_X,		0xB00,	MASK_4B,	0, 			0    , 		5 , 	&op_ld_x_cb		}, // LD_X
+	{OPCODE_LD_Y,		0x800,	MASK_4B,	0, 			0    , 		5 , 	&op_ld_y_cb		}, // LD_Y
+	{OPCODE_LD_XP_R,	0xE80,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_xp_r_cb	}, // LD_XP_R
+	{OPCODE_LD_XH_R,	0xE84,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_xh_r_cb	}, // LD_XH_R
+	{OPCODE_LD_XL_R,	0xE88,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_xl_r_cb	}, // LD_XL_R
+	{OPCODE_LD_YP_R,	0xE90,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_yp_r_cb	}, // LD_YP_R
+	{OPCODE_LD_YH_R,	0xE94,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_yh_r_cb	}, // LD_YH_R
+	{OPCODE_LD_YL_R,	0xE98,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_yl_r_cb	}, // LD_YL_R
+	{OPCODE_LD_R_XP,	0xEA0,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_xp_cb	}, // LD_R_XP
+	{OPCODE_LD_R_XH,	0xEA4,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_xh_cb	}, // LD_R_XH
+	{OPCODE_LD_R_XL,	0xEA8,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_xl_cb	}, // LD_R_XL
+	{OPCODE_LD_R_YP,	0xEB0,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_yp_cb	}, // LD_R_YP
+	{OPCODE_LD_R_YH,	0xEB4,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_yh_cb	}, // LD_R_YH
+	{OPCODE_LD_R_YL,	0xEB8,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_yl_cb	}, // LD_R_YL
+	{OPCODE_ADC_XH,		0xA00,	MASK_8B,	0, 			0    , 		7 , 	&op_adc_xh_cb	}, // ADC_XH
+	{OPCODE_ADC_XL,		0xA10,	MASK_8B,	0, 			0    , 		7 , 	&op_adc_xl_cb	}, // ADC_XL
+	{OPCODE_ADC_YH,		0xA20,	MASK_8B,	0, 			0    , 		7 , 	&op_adc_yh_cb	}, // ADC_YH
+	{OPCODE_ADC_YL,		0xA30,	MASK_8B,	0, 			0    , 		7 , 	&op_adc_yl_cb	}, // ADC_YL
+	{OPCODE_CP_XH,		0xA40,	MASK_8B,	0, 			0    , 		7 , 	&op_cp_xh_cb	}, // CP_XH
+	{OPCODE_CP_XL,		0xA50,	MASK_8B,	0, 			0    , 		7 , 	&op_cp_xl_cb	}, // CP_XL
+	{OPCODE_CP_YH,		0xA60,	MASK_8B,	0, 			0    , 		7 , 	&op_cp_yh_cb	}, // CP_YH
+	{OPCODE_CP_YL,		0xA70,	MASK_8B,	0, 			0    , 		7 , 	&op_cp_yl_cb	}, // CP_YL
+	{OPCODE_LD_R_I,		0xE00,	MASK_6B,	4, 			0x030, 		5 , 	&op_ld_r_i_cb	}, // LD_R_I
+	{OPCODE_LD_R_Q,		0xEC0,	MASK_8B,	2, 			0x00C, 		5 , 	&op_ld_r_q_cb	}, // LD_R_Q
+	{OPCODE_LD_A_MN,	0xFA0,	MASK_8B,	0, 			0    , 		5 , 	&op_ld_a_mn_cb	}, // LD_A_MN
+	{OPCODE_LD_B_MN,	0xFB0,	MASK_8B,	0, 			0    , 		5 , 	&op_ld_b_mn_cb	}, // LD_B_MN
+	{OPCODE_LD_MN_A,	0xF80,	MASK_8B,	0, 			0    , 		5 , 	&op_ld_mn_a_cb	}, // LD_MN_A
+	{OPCODE_LD_MN_B,	0xF90,	MASK_8B,	0, 			0    , 		5 , 	&op_ld_mn_b_cb	}, // LD_MN_B
+	{OPCODE_LDPX_MX,	0xE60,	MASK_8B,	0, 			0    , 		5 , 	&op_ldpx_mx_cb	}, // LDPX_MX
+	{OPCODE_LDPX_R,		0xEE0,	MASK_8B,	2, 			0x00C, 		5 , 	&op_ldpx_r_cb	}, // LDPX_R
+	{OPCODE_LDPY_MY,	0xE70,	MASK_8B,	0, 			0    , 		5 , 	&op_ldpy_my_cb	}, // LDPY_MY
+	{OPCODE_LDPY_R,		0xEF0,	MASK_8B,	2, 			0x00C, 		5 , 	&op_ldpy_r_cb	}, // LDPY_R
+	{OPCODE_LBPX,		0x900,	MASK_4B,	0, 			0    , 		5 , 	&op_lbpx_cb		}, // LBPX
+	{OPCODE_SET,		0xF40,	MASK_8B,	0, 			0    , 		7 , 	&op_set_cb		}, // SET
+	{OPCODE_RST,		0xF50,	MASK_8B,	0, 			0    , 		7 , 	&op_rst_cb		}, // RST
+	{OPCODE_SCF,		0xF41,	MASK_12B,	0, 			0    , 		7 , 	&op_scf_cb		}, // SCF
+	{OPCODE_RCF,		0xF5E,	MASK_12B,	0, 			0    , 		7 , 	&op_rcf_cb		}, // RCF
+	{OPCODE_SZF,		0xF42,	MASK_12B,	0, 			0    , 		7 , 	&op_szf_cb		}, // SZF
+	{OPCODE_RZF,		0xF5D,	MASK_12B,	0, 			0    , 		7 , 	&op_rzf_cb		}, // RZF
+	{OPCODE_SDF,		0xF44,	MASK_12B,	0, 			0    , 		7 , 	&op_sdf_cb		}, // SDF
+	{OPCODE_RDF,		0xF5B,	MASK_12B,	0, 			0    , 		7 , 	&op_rdf_cb		}, // RDF
+	{OPCODE_EI,			0xF48,	MASK_12B,	0, 			0    , 		7 , 	&op_ei_cb		}, // EI
+	{OPCODE_DI,			0xF57,	MASK_12B,	0, 			0    , 		7 , 	&op_di_cb		}, // DI
+	{OPCODE_INC_SP,		0xFDB,	MASK_12B,	0, 			0    , 		5 , 	&op_inc_sp_cb	}, // INC_SP
+	{OPCODE_DEC_SP,		0xFCB,	MASK_12B,	0, 			0    , 		5 , 	&op_dec_sp_cb	}, // DEC_SP
+	{OPCODE_PUSH_R,		0xFC0,	MASK_10B,	0, 			0    , 		5 , 	&op_push_r_cb	}, // PUSH_R
+	{OPCODE_PUSH_XP,	0xFC4,	MASK_12B,	0, 			0    , 		5 , 	&op_push_xp_cb	}, // PUSH_XP
+	{OPCODE_PUSH_XH,	0xFC5,	MASK_12B,	0, 			0    , 		5 , 	&op_push_xh_cb	}, // PUSH_XH
+	{OPCODE_PUSH_XL,	0xFC6,	MASK_12B,	0, 			0    , 		5 , 	&op_push_xl_cb	}, // PUSH_XL
+	{OPCODE_PUSH_YP,	0xFC7,	MASK_12B,	0, 			0    , 		5 , 	&op_push_yp_cb	}, // PUSH_YP
+	{OPCODE_PUSH_YH,	0xFC8,	MASK_12B,	0, 			0    , 		5 , 	&op_push_yh_cb	}, // PUSH_YH
+	{OPCODE_PUSH_YL,	0xFC9,	MASK_12B,	0, 			0    , 		5 , 	&op_push_yl_cb	}, // PUSH_YL
+	{OPCODE_PUSH_F,		0xFCA,	MASK_12B,	0, 			0    , 		5 , 	&op_push_f_cb	}, // PUSH_F
+	{OPCODE_POP_R,		0xFD0,	MASK_10B,	0, 			0    , 		5 , 	&op_pop_r_cb	}, // POP_R
+	{OPCODE_POP_XP,		0xFD4,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_xp_cb	}, // POP_XP
+	{OPCODE_POP_XH,		0xFD5,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_xh_cb	}, // POP_XH
+	{OPCODE_POP_XL,		0xFD6,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_xl_cb	}, // POP_XL
+	{OPCODE_POP_YP,		0xFD7,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_yp_cb	}, // POP_YP
+	{OPCODE_POP_YH,		0xFD8,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_yh_cb	}, // POP_YH
+	{OPCODE_POP_YL,		0xFD9,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_yl_cb	}, // POP_YL
+	{OPCODE_POP_F,		0xFDA,	MASK_12B,	0, 			0    , 		5 , 	&op_pop_f_cb	}, // POP_F
+	{OPCODE_LD_SPH_R,	0xFE0,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_sph_r_cb	}, // LD_SPH_R
+	{OPCODE_LD_SPL_R,	0xFF0,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_spl_r_cb	}, // LD_SPL_R
+	{OPCODE_LD_R_SPH,	0xFE4,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_sph_cb	}, // LD_R_SPH
+	{OPCODE_LD_R_SPL,	0xFF4,	MASK_10B,	0, 			0    , 		5 , 	&op_ld_r_spl_cb	}, // LD_R_SPL
+	{OPCODE_ADD_R_I,	0xC00,	MASK_6B,	4, 			0x030, 		7 , 	&op_add_r_i_cb	}, // ADD_R_I
+	{OPCODE_ADD_R_Q,	0xA80,	MASK_8B,	2, 			0x00C, 		7 , 	&op_add_r_q_cb	}, // ADD_R_Q
+	{OPCODE_ADC_R_I,	0xC40,	MASK_6B,	4, 			0x030, 		7 , 	&op_adc_r_i_cb	}, // ADC_R_I
+	{OPCODE_ADC_R_Q,	0xA90,	MASK_8B,	2, 			0x00C, 		7 , 	&op_adc_r_q_cb	}, // ADC_R_Q
+	{OPCODE_SUB,		0xAA0,	MASK_8B,	2, 			0x00C, 		7 , 	&op_sub_cb		}, // SUB
+	{OPCODE_SBC_R_I,	0xD40,	MASK_6B,	4, 			0x030, 		7 , 	&op_sbc_r_i_cb	}, // SBC_R_I
+	{OPCODE_SBC_R_Q,	0xAB0,	MASK_8B,	2, 			0x00C, 		7 , 	&op_sbc_r_q_cb	}, // SBC_R_Q
+	{OPCODE_AND_R_I,	0xC80,	MASK_6B,	4, 			0x030, 		7 , 	&op_and_r_i_cb	}, // AND_R_I
+	{OPCODE_AND_R_Q,	0xAC0,	MASK_8B,	2, 			0x00C, 		7 , 	&op_and_r_q_cb	}, // AND_R_Q
+	{OPCODE_OR_R_I,		0xCC0,	MASK_6B,	4, 			0x030, 		7 , 	&op_or_r_i_cb	}, // OR_R_I
+	{OPCODE_OR_R_Q,		0xAD0,	MASK_8B,	2, 			0x00C, 		7 , 	&op_or_r_q_cb	}, // OR_R_Q
+	{OPCODE_XOR_R_I,	0xD00,	MASK_6B,	4, 			0x030, 		7 , 	&op_xor_r_i_cb	}, // XOR_R_I
+	{OPCODE_XOR_R_Q,	0xAE0,	MASK_8B,	2, 			0x00C, 		7 , 	&op_xor_r_q_cb	}, // XOR_R_Q
+	{OPCODE_CP_R_I,		0xDC0,	MASK_6B,	4, 			0x030, 		7 , 	&op_cp_r_i_cb	}, // CP_R_I
+	{OPCODE_CP_R_Q,		0xF00,	MASK_8B,	2, 			0x00C, 		7 , 	&op_cp_r_q_cb	}, // CP_R_Q
+	{OPCODE_FAN_R_I,	0xD80,	MASK_6B,	4, 			0x030, 		7 , 	&op_fan_r_i_cb	}, // FAN_R_I
+	{OPCODE_FAN_R_Q,	0xF10,	MASK_8B,	2, 			0x00C, 		7 , 	&op_fan_r_q_cb	}, // FAN_R_Q
+	{OPCODE_RLC,		0xAF0,	MASK_8B,	0, 			0    , 		7 , 	&op_rlc_cb		}, // RLC
+	{OPCODE_RRC,		0xE8C,	MASK_10B,	0, 			0    , 		5 , 	&op_rrc_cb		}, // RRC
+	{OPCODE_INC_MN,		0xF60,	MASK_8B,	0, 			0    , 		7 , 	&op_inc_mn_cb	}, // INC_MN
+	{OPCODE_DEC_MN,		0xF70,	MASK_8B,	0, 			0    , 		7 , 	&op_dec_mn_cb	}, // DEC_MN
+	{OPCODE_ACPX,		0xF28,	MASK_10B,	0, 			0    , 		7 , 	&op_acpx_cb		}, // ACPX
+	{OPCODE_ACPY,		0xF2C,	MASK_10B,	0, 			0    , 		7 , 	&op_acpy_cb		}, // ACPY
+	{OPCODE_SCPX,		0xF38,	MASK_10B,	0, 			0    , 		7 , 	&op_scpx_cb		}, // SCPX
+	{OPCODE_SCPY,		0xF3C,	MASK_10B,	0, 			0    , 		7 , 	&op_scpy_cb		}, // SCPY
+	{OPCODE_NOT,		0xD0F,	0xFCF,		4, 			0    , 		7 , 	&op_not_cb		}, // NOT
 
 	{NULL, 0, 0, 0, 0, 0, NULL},
 };
@@ -1873,7 +1881,7 @@ static void process_interrupts(void)
 			sp = (sp - 3) & 0xFF;
 			CLEAR_I();
 			np = TO_NP(NBP, 1);
-			pc = TO_PC(PCB, 1, interrupts[i].vector);
+			pc_register = TO_PC(PCB, 1, interrupts[i].vector);
 			call_depth++;
 			cpu_halted = 0;
 
@@ -1905,6 +1913,7 @@ static void print_state(u8_t op_num, u12_t op, u13_t addr)
 				 ops[op_num].log, 
 				(op & ~ops[op_num].mask) >> ops[op_num].shift_arg0);
 		}
+		g_hal->log(LOG_OP, LOG_OP_ADDR, addr);
 		return;
 	}
 
@@ -1937,7 +1946,7 @@ static void print_state(u8_t op_num, u12_t op, u13_t addr)
 	for (i = 0; i < 12; i++) {
 		g_hal->log(LOG_CPU, LOG_CPU_STR, ((op >> (11 - i)) & 0x1) ? "1" : "0");
 	}
-	g_hal->log(LOG_CPU, LOG_CPU_STATS, pc, sp, np, x, y, a, b, flags);
+	g_hal->log(LOG_CPU, LOG_CPU_STATS, pc_register, sp, np, x, y, a, b, flags);
 }
 
 static void handle_timers(void)
@@ -2053,7 +2062,7 @@ void cpu_reset(void)
 	u13_t i;
 
 	/* Registers and variables init */
-	pc = TO_PC(0, 1, 0x00); // PC starts at bank 0, page 1, step 0
+	pc_register = TO_PC(0, 1, 0x00); // PC starts at bank 0, page 1, step 0
 	np = TO_NP(0, 1); // NP starts at page 1
 	a = 0; // undef
 	b = 0; // undef
@@ -2076,7 +2085,7 @@ void cpu_reset(void)
 	cpu_sync_ref_timestamp();
 }
 
-bool_t cpu_init(const u12_t *program, breakpoint_t *breakpoints, u32_t freq)
+bool_t cpu_init(const u12_t __wf_rom* program, breakpoint_t *breakpoints, u32_t freq)
 {
 	g_program = program;
 	g_breakpoints = breakpoints;
@@ -2090,7 +2099,7 @@ bool_t cpu_init(const u12_t *program, breakpoint_t *breakpoints, u32_t freq)
 void cpu_release(void)
 {
 }
-
+#define SWAP16(x)  (((x) << 8) | ((x) >> 8))
 int cpu_step(void)
 {
 	u12_t op;
@@ -2099,7 +2108,8 @@ int cpu_step(void)
 	static u8_t previous_cycles = 0;
 
 	if (!cpu_halted) {
-		op = g_program[pc];
+		op = g_program[pc_register];
+		//op = SWAP16(op);
 
 		/* Lookup the OP code */
 		for (i = 0; ops[i].log != NULL; i++) {
@@ -2109,14 +2119,14 @@ int cpu_step(void)
 		}
 
 		if (ops[i].log == NULL) {
-			g_hal->log(LOG_ERROR, LOG_ERROR_UNKNOWN_OPCODE, op, pc);
+			g_hal->log(LOG_ERROR, LOG_ERROR_UNKNOWN_OPCODE, op, pc_register);
 			return 1;
 		}
 
-		next_pc = (pc + 1) & 0x1FFF;
+		next_pc = (pc_register + 1) & 0x1FFF;
 
 		/* Display the operation along with the current state of the processor */
-		print_state(i, op, pc);
+		print_state(i, op, pc_register);
 
 		/* Match the speed of the real processor
 		* NOTE: For better accuracy, the final wait should happen here, however
@@ -2136,12 +2146,12 @@ int cpu_step(void)
 		}
 
 		/* Prepare for the next instruction */
-		pc = next_pc;
+		pc_register = next_pc;
 		previous_cycles = ops[i].cycles;
 
 		if (i != 0) {
 			/* OP code is not PSET, reset NP */
-			np = (pc >> 8) & 0x1F;
+			np = (pc_register >> 8) & 0x1F;
 		}
 	} else {
 		/* Wait at least once for the duration of a HALT and as long as required
@@ -2165,7 +2175,7 @@ int cpu_step(void)
 
 	/* Check if we could pause the execution */
 	while (!cpu_halted && bp != NULL) {
-		if (bp->addr == pc) {
+		if (bp->addr == pc_register) {
 			return 1;
 		}
 

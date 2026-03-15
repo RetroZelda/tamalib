@@ -161,7 +161,7 @@ typedef struct {
 } interrupt_t;
 
 typedef struct {
-	u13_t *pc;
+	u13_t *pc_register;
 	u12_t *x;
 	u12_t *y;
 	u4_t *a;
@@ -211,7 +211,7 @@ void cpu_refresh_hw(void);
 
 void cpu_reset(void);
 
-bool_t cpu_init(const u12_t *program, breakpoint_t *breakpoints, u32_t freq);
+bool_t cpu_init(const u12_t __wf_rom* program, breakpoint_t *breakpoints, u32_t freq);
 void cpu_release(void);
 
 int cpu_step(void);
