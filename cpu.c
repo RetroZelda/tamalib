@@ -349,7 +349,6 @@ static u8_t prog_timer_rld = 0;
 
 static u32_t tick_counter = 0;
 static u32_t ts_freq;
-static u8_t speed_ratio = 1;
 static timestamp_t ref_ts;
 
 static bool_t cpu_halted = 0;
@@ -424,11 +423,6 @@ void cpu_free_bp(breakpoint_t **list)
 	}
 
 	*list = NULL;
-}
-
-void cpu_set_speed(u8_t speed)
-{
-	speed_ratio = speed;
 }
 
 state_t * cpu_get_state(void)
@@ -1867,15 +1861,8 @@ static timestamp_t wait_for_cycles(timestamp_t since, u8_t cycles) {
 		scaled_cycle_accumulator -= ticks_pending * cpu_frequency;
 	}
 
-	if (speed_ratio == 0) {
-		/* Emulation will be as fast as possible */
-		return g_hal->get_timestamp();
-	}
-
-	deadline = since + (cycles * ts_freq)/(cpu_frequency * speed_ratio);
-	g_hal->sleep_until(deadline);
-
-	return deadline;
+	/* Emulation will be as fast as possible */
+	return g_hal->get_timestamp();
 }
 
 static void process_interrupts(void)
