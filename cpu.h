@@ -190,8 +190,6 @@ typedef struct {
 	u8_t *prog_timer_data;
 	u8_t *prog_timer_rld;
 
-	u32_t *call_depth;
-
 	interrupt_t *interrupts;
 
 	bool_t *cpu_halted;
@@ -203,11 +201,7 @@ typedef struct {
 void cpu_add_bp(breakpoint_t **list, u13_t addr);
 void cpu_free_bp(breakpoint_t **list);
 
-void cpu_set_speed(u8_t speed);
-
 state_t * cpu_get_state(void);
-
-u32_t cpu_get_depth(void);
 
 void cpu_set_input_pin(pin_t pin, pin_state_t state);
 

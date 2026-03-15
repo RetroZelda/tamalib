@@ -24,10 +24,6 @@
 
 #define DEFAULT_FRAMERATE				30 // fps
 
-static exec_mode_t exec_mode = EXEC_MODE_RUN;
-
-static u32_t step_depth = 0;
-
 static timestamp_t screen_ts = 0;
 
 static u32_t ts_freq;
@@ -70,54 +66,9 @@ void tamalib_register_hal(hal_t *hal)
 	g_hal = hal;
 }
 
-void tamalib_set_exec_mode(exec_mode_t mode)
-{
-	exec_mode = mode;
-	step_depth = cpu_get_depth();
-	cpu_sync_ref_timestamp();
-}
-
 void tamalib_step(void)
 {
-	if (exec_mode == EXEC_MODE_PAUSE) {
-		return;
-	}
-
-	if (cpu_step()) {
-		exec_mode = EXEC_MODE_PAUSE;
-		step_depth = cpu_get_depth();
-	} else {
-		switch (exec_mode) {
-			case EXEC_MODE_PAUSE:
-			case EXEC_MODE_RUN:
-				break;
-
-			case EXEC_MODE_STEP:
-				exec_mode = EXEC_MODE_PAUSE;
-				break;
-
-			case EXEC_MODE_NEXT:
-				if (cpu_get_depth() <= step_depth) {
-					exec_mode = EXEC_MODE_PAUSE;
-					step_depth = cpu_get_depth();
-				}
-				break;
-
-			case EXEC_MODE_TO_CALL:
-				if (cpu_get_depth() > step_depth) {
-					exec_mode = EXEC_MODE_PAUSE;
-					step_depth = cpu_get_depth();
-				}
-				break;
-
-			case EXEC_MODE_TO_RET:
-				if (cpu_get_depth() < step_depth) {
-					exec_mode = EXEC_MODE_PAUSE;
-					step_depth = cpu_get_depth();
-				}
-				break;
-		}
-	}
+	cpu_step();
 }
 
 void tamalib_mainloop(void)

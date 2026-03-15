@@ -332,8 +332,6 @@ static const char __wf_rom* interrupt_names[] =
 
 static breakpoint_t *g_breakpoints = NULL;
 
-static u32_t call_depth = 0;
-
 static u32_t clk_timer_2hz_timestamp = 0; // in ticks
 static u32_t clk_timer_4hz_timestamp = 0; // in ticks
 static u32_t clk_timer_8hz_timestamp = 0; // in ticks
@@ -379,8 +377,6 @@ static state_t cpu_state = {
 	.prog_timer_enabled = &prog_timer_enabled,
 	.prog_timer_data = &prog_timer_data,
 	.prog_timer_rld = &prog_timer_rld,
-
-	.call_depth = &call_depth,
 
 	.interrupts = interrupts,
 
@@ -428,11 +424,6 @@ void cpu_free_bp(breakpoint_t **list)
 state_t * cpu_get_state(void)
 {
 	return &cpu_state;
-}
-
-u32_t cpu_get_depth(void)
-{
-	return call_depth;
 }
 
 static void generate_interrupt(int_slot_t slot, u8_t bit)
@@ -967,7 +958,6 @@ static void op_call_cb(u8_t arg0, u8_t arg1)
 	SET_M((sp - 3) & 0xFF, PCSL);
 	sp = (sp - 3) & 0xFF;
 	next_pc = TO_PC(PCB, NPP, arg0);
-	call_depth++;
 }
 
 static void op_calz_cb(u8_t arg0, u8_t arg1)
@@ -978,16 +968,12 @@ static void op_calz_cb(u8_t arg0, u8_t arg1)
 	SET_M((sp - 3) & 0xFF, PCSL);
 	sp = (sp - 3) & 0xFF;
 	next_pc = TO_PC(PCB, 0, arg0);
-	call_depth++;
 }
 
 static void op_ret_cb(u8_t arg0, u8_t arg1)
 {
 	next_pc = M(sp) | (M((sp + 1) & 0xFF) << 4) | (M((sp + 2) & 0xFF) << 8) | (PCB << 12);
 	sp = (sp + 3) & 0xFF;
-	if (call_depth > 0) {
-		call_depth--;
-	}
 }
 
 static void op_rets_cb(u8_t arg0, u8_t arg1)
@@ -995,9 +981,6 @@ static void op_rets_cb(u8_t arg0, u8_t arg1)
 	next_pc = M(sp) | (M((sp + 1) & 0xFF) << 4) | (M((sp + 2) & 0xFF) << 8) | (PCB << 12);
 	sp = (sp + 3) & 0xFF;
 	next_pc = (next_pc + 1) & 0x1FFF;
-	if (call_depth > 0) {
-		call_depth--;
-	}
 }
 
 static void op_retd_cb(u8_t arg0, u8_t arg1)
@@ -1007,9 +990,6 @@ static void op_retd_cb(u8_t arg0, u8_t arg1)
 	SET_M(x, arg0 & 0xF);
 	SET_M(((x + 1) & 0xFF) | (XP << 8), (arg0 >> 4) & 0xF);
 	x = ((x + 2) & 0xFF) | (XP << 8);
-	if (call_depth > 0) {
-		call_depth--;
-	}
 }
 
 static void op_nop5_cb(u8_t arg0, u8_t arg1)
@@ -1847,7 +1827,6 @@ static const op_t __wf_rom ops[] = {
 
 
 static timestamp_t wait_for_cycles(timestamp_t since, u8_t cycles) {
-	timestamp_t deadline;
 	u32_t ticks_pending;
 
 	/* The tick counter always works at TICK_FREQUENCY,
@@ -1880,7 +1859,6 @@ static void process_interrupts(void)
 			CLEAR_I();
 			np = TO_NP(NBP, 1);
 			pc = TO_PC(PCB, 1, interrupts[i].vector);
-			call_depth++;
 			cpu_halted = 0;
 
 			ref_ts = wait_for_cycles(ref_ts, 12);
@@ -1913,14 +1891,7 @@ static void print_state(u8_t op_num, u12_t op, u13_t addr)
 
 	PRINT_LOG(LOG_CPU, LOG_CPU_ADDR, addr);
 
-	if (call_depth < 100) {
-		for (i = 0; i < call_depth; i++) {
-			PRINT_LOG(LOG_CPU, LOG_CPU_SPACE);
-		}
-	} else {
-		/* Something went wrong with the call depth */
 		PRINT_LOG(LOG_CPU, LOG_CPU_ARROW);
-	}
 
 	if (ops[op_num].mask_arg0 != 0) {
 		/* Two arguments */
@@ -1928,12 +1899,6 @@ static void print_state(u8_t op_num, u12_t op, u13_t addr)
 	} else {
 		/* One argument */
 		PRINT_LOG(LOG_OP, ops[op_num].log, (op & ~ops[op_num].mask) >> ops[op_num].shift_arg0);
-	}
-
-	if (call_depth < 10) {
-		for (i = 0; i < (10 - call_depth); i++) {
-			PRINT_LOG(LOG_CPU, LOG_CPU_SPACE);
-		}
 	}
 
 	PRINT_LOG(LOG_CPU, LOG_CPU_OPCODE, op);
