@@ -58,18 +58,18 @@
 
 #ifdef LOW_FOOTPRINT
 /* Invalid memory areas are not buffered to reduce the footprint of the library in memory */
-#define MEM_BUFFER_SIZE				(MEM_RAM_SIZE + MEM_DISPLAY1_SIZE + MEM_DISPLAY2_SIZE + MEM_IO_SIZE)/2
+#define MEM_BUFFER_SIZE				(MEM_RAM_SIZE + MEM_DISPLAY1_SIZE + MEM_DISPLAY2_SIZE + MEM_IO_SIZE) >> 1
 
 /* Maps the CPU memory to the memory buffer */
-#define RAM_TO_MEMORY(n)			((n - MEM_RAM_ADDR)/2)
-#define DISP1_TO_MEMORY(n)			((n - MEM_DISPLAY1_ADDR + MEM_RAM_SIZE)/2)
-#define DISP2_TO_MEMORY(n)			((n - MEM_DISPLAY2_ADDR + MEM_RAM_SIZE + MEM_DISPLAY1_SIZE)/2)
-#define IO_TO_MEMORY(n)				((n - MEM_IO_ADDR + MEM_RAM_SIZE + MEM_DISPLAY1_SIZE + MEM_DISPLAY2_SIZE)/2)
+#define RAM_TO_MEMORY(n)			((n - MEM_RAM_ADDR) >> 1)
+#define DISP1_TO_MEMORY(n)			((n - MEM_DISPLAY1_ADDR + MEM_RAM_SIZE) >> 1)
+#define DISP2_TO_MEMORY(n)			((n - MEM_DISPLAY2_ADDR + MEM_RAM_SIZE + MEM_DISPLAY1_SIZE) >> 1)
+#define IO_TO_MEMORY(n)				((n - MEM_IO_ADDR + MEM_RAM_SIZE + MEM_DISPLAY1_SIZE + MEM_DISPLAY2_SIZE) >> 1)
 
-#define SET_RAM_MEMORY(buffer, n, v)		{buffer[RAM_TO_MEMORY(n)] = (buffer[RAM_TO_MEMORY(n)] & ~(0xF << (((n) % 2) << 2))) | ((v) & 0xF) << (((n) % 2) << 2);}
-#define SET_DISP1_MEMORY(buffer, n, v)		{buffer[DISP1_TO_MEMORY(n)] = (buffer[DISP1_TO_MEMORY(n)] & ~(0xF << (((n) % 2) << 2))) | ((v) & 0xF) << (((n) % 2) << 2);}
-#define SET_DISP2_MEMORY(buffer, n, v)		{buffer[DISP2_TO_MEMORY(n)] = (buffer[DISP2_TO_MEMORY(n)] & ~(0xF << (((n) % 2) << 2))) | ((v) & 0xF) << (((n) % 2) << 2);}
-#define SET_IO_MEMORY(buffer, n, v)		{buffer[IO_TO_MEMORY(n)] = (buffer[IO_TO_MEMORY(n)] & ~(0xF << (((n) % 2) << 2))) | ((v) & 0xF) << (((n) % 2) << 2);}
+#define SET_RAM_MEMORY(buffer, n, v)		{buffer[RAM_TO_MEMORY(n)] = (buffer[RAM_TO_MEMORY(n)] & ~(0xF << (((n) & 1) << 2))) | ((v) & 0xF) << (((n) & 1) << 2);}
+#define SET_DISP1_MEMORY(buffer, n, v)		{buffer[DISP1_TO_MEMORY(n)] = (buffer[DISP1_TO_MEMORY(n)] & ~(0xF << (((n) & 1) << 2))) | ((v) & 0xF) << (((n) & 1) << 2);}
+#define SET_DISP2_MEMORY(buffer, n, v)		{buffer[DISP2_TO_MEMORY(n)] = (buffer[DISP2_TO_MEMORY(n)] & ~(0xF << (((n) & 1) << 2))) | ((v) & 0xF) << (((n) & 1) << 2);}
+#define SET_IO_MEMORY(buffer, n, v)		{buffer[IO_TO_MEMORY(n)] = (buffer[IO_TO_MEMORY(n)] & ~(0xF << (((n) & 1) << 2))) | ((v) & 0xF) << (((n) & 1) << 2);}
 #define SET_MEMORY(buffer, n, v)		{if ((n) < (MEM_RAM_ADDR + MEM_RAM_SIZE)) { \
 							SET_RAM_MEMORY(buffer, n, v); \
 						} else if ((n) < MEM_DISPLAY1_ADDR) { \
@@ -88,10 +88,10 @@
 							/* INVALID_MEMORY */ \
 						}}
 
-#define GET_RAM_MEMORY(buffer, n)		((buffer[RAM_TO_MEMORY(n)] >> (((n) % 2) << 2)) & 0xF)
-#define GET_DISP1_MEMORY(buffer, n)		((buffer[DISP1_TO_MEMORY(n)] >> (((n) % 2) << 2)) & 0xF)
-#define GET_DISP2_MEMORY(buffer, n)		((buffer[DISP2_TO_MEMORY(n)] >> (((n) % 2) << 2)) & 0xF)
-#define GET_IO_MEMORY(buffer, n)		((buffer[IO_TO_MEMORY(n)] >> (((n) % 2) << 2)) & 0xF)
+#define GET_RAM_MEMORY(buffer, n)		((buffer[RAM_TO_MEMORY(n)] >> (((n) & 1) << 2)) & 0xF)
+#define GET_DISP1_MEMORY(buffer, n)		((buffer[DISP1_TO_MEMORY(n)] >> (((n) & 1) << 2)) & 0xF)
+#define GET_DISP2_MEMORY(buffer, n)		((buffer[DISP2_TO_MEMORY(n)] >> (((n) & 1) << 2)) & 0xF)
+#define GET_IO_MEMORY(buffer, n)		((buffer[IO_TO_MEMORY(n)] >> (((n) & 1) << 2)) & 0xF)
 #define GET_MEMORY(buffer, n)			((buffer[ \
 							((n) < (MEM_RAM_ADDR + MEM_RAM_SIZE)) ? RAM_TO_MEMORY(n) : \
 							((n) < MEM_DISPLAY1_ADDR) ? 0 : \
@@ -100,7 +100,7 @@
 							((n) < (MEM_DISPLAY2_ADDR + MEM_DISPLAY2_SIZE)) ? DISP2_TO_MEMORY(n) : \
 							((n) < MEM_IO_ADDR) ? 0 : \
 							((n) < (MEM_IO_ADDR + MEM_IO_SIZE)) ? IO_TO_MEMORY(n) : 0 \
-						] >> (((n) % 2) << 2)) & 0xF)
+						] >> (((n) & 1) << 2)) & 0xF)
 
 #define MEM_BUFFER_TYPE				u8_t
 #else
