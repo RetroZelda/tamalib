@@ -138,151 +138,6 @@
 
 #define INPUT_PORT_NUM				2
 
-#ifdef ENABLE_LOGS
-const char __wf_rom LOG_ERROR_BREAKPOINT[] = "Cannot allocate memory for breakpoint 0x%04X!\n";
-const char __wf_rom LOG_ERROR_UNIMPLEMENTED_IO_READ[] = "Read from unimplemented I/O 0x%03X - PC = 0x%04X\n";
-const char __wf_rom LOG_ERROR_UNIMPLEMENTED_IO_WRITE[] = "Write 0x%X to unimplemented I/O 0x%03X - PC = 0x%04X\n";
-const char __wf_rom LOG_ERROR_INVALID_MEMORY_READ[] = "Read from invalid memory address 0x%03X - PC = 0x%04X\n";
-const char __wf_rom LOG_ERROR_INVALID_MEMORY_WRITE[] = "Write 0x%X to invalid memory address 0x%03X - PC = 0x%04X\n";
-const char __wf_rom LOG_ERROR_UNKNOWN_OPCODE[] = "Unknown op-code 0x%X (pc = 0x%04X)\n";
-const char __wf_rom LOG_ERROR_OPCODE_LOOKUP_FAILED[] = "%X %X %X\n";
-const char __wf_rom LOG_MEMORY_RAM[] = "RAM\n";
-const char __wf_rom LOG_MEMORY_DISPLAY[] = "Display Memory %d\n";
-const char __wf_rom LOG_MEMORY_IO[] = "I/O\n";
-const char __wf_rom LOG_MEMORY_DATA_READ[] = "\tRead  0x%X\n";
-const char __wf_rom LOG_MEMORY_DATA_WRITE[] = "\tWrite 0x%X\n";
-const char __wf_rom LOG_MEMORY_DATA_ADDRESS[] = "\tAddress 0x%03X\n";
-const char __wf_rom LOG_MEMORY_DATA_PC[] = "\tPC = 0x%04X\n";
-const char __wf_rom LOG_INTERRUPT_TRIGGERED[] = "Interrupt triggered:\n\t%s (%u)";
-const char __wf_rom LOG_CPU_ADDR[] = "0x%04X: ";
-const char __wf_rom LOG_CPU_SPACE[] = "  ";
-const char __wf_rom LOG_CPU_ARROW[] = "<<< ";
-const char __wf_rom LOG_CPU_OPCODE[] = " ; 0x%03X - ";
-const char __wf_rom LOG_CPU_STR[] = "%s";
-const char __wf_rom LOG_CPU_NL[] = "\n";
-const char __wf_rom LOG_CPU_STATS[] = " - PC = 0x%04X, SP = 0x%02X, NP = 0x%02X, X = 0x%03X, Y = 0x%03X, A = 0x%X, B = 0x%X, F = 0x%X\n";
-const char __wf_rom LOG_INFO_BUZZER[] = "Output/Buzzer: 0x%X\n";
-const char __wf_rom LOG_INFO_OS3[] = "Switch to OSC3\n";
-const char __wf_rom LOG_INFO_OS1[] = "Switch to OSC1\n";
-const char __wf_rom LOG_OP_ADDR[] = "\tADDR: 0x%04X\n";
-
-const char __wf_rom INTERUPT_PROG_TIMER_SLOT[] = "INT_PROG_TIMER_SLOT";
-const char __wf_rom INTERUPT_SERIAL_SLOT[] = "INT_SERIAL_SLOT";
-const char __wf_rom INTERUPT_K10_K13_SLOT[] = "INT_K10_K13_SLOT";
-const char __wf_rom INTERUPT_K00_K03_SLOT[] = "INT_K00_K03_SLOT";
-const char __wf_rom INTERUPT_STOPWATCH_SLOT[] = "INT_STOPWATCH_SLOT";
-const char __wf_rom INTERUPT_CLOCK_TIMER_SLOT[] = "INT_CLOCK_TIMER_SLOT";
-
-const char __wf_rom LOG_OPCODE_PSET[] = "PSET #0x%02X\n";
-const char __wf_rom LOG_OPCODE_JP[] = "JP   #0x%02X\n";
-const char __wf_rom LOG_OPCODE_JP_C[] = "JP   C #0x%02X\n";
-const char __wf_rom LOG_OPCODE_JP_NC[] = "JP   NC #0x%02X\n";
-const char __wf_rom LOG_OPCODE_JP_Z[] = "JP   Z #0x%02X\n";
-const char __wf_rom LOG_OPCODE_JP_NZ[] = "JP   NZ #0x%02X\n";
-const char __wf_rom LOG_OPCODE_JPBA[] = "JPBA\n";
-const char __wf_rom LOG_OPCODE_CALL[] = "CALL #0x%02X\n";
-const char __wf_rom LOG_OPCODE_CALZ[] = "CALZ #0x%02X\n";
-const char __wf_rom LOG_OPCODE_RET[] = "RET\n";
-const char __wf_rom LOG_OPCODE_RETS[] = "RETS\n";
-const char __wf_rom LOG_OPCODE_RETD[] = "RETD #0x%02X\n";
-const char __wf_rom LOG_OPCODE_NOP5[] = "NOP5\n";
-const char __wf_rom LOG_OPCODE_NOP7[] = "NOP7\n";
-const char __wf_rom LOG_OPCODE_HALT[] = "HALT\n";
-const char __wf_rom LOG_OPCODE_INC_X[] = "INC  X #0x%02X\n";
-const char __wf_rom LOG_OPCODE_INC_Y[] = "INC  Y #0x%02X\n";
-const char __wf_rom LOG_OPCODE_LD_X[] = "LD   X #0x%02X\n";
-const char __wf_rom LOG_OPCODE_LD_Y[] = "LD   Y #0x%02X\n";
-const char __wf_rom LOG_OPCODE_LD_XP_R[] = "LD   XP R(%X)\n";
-const char __wf_rom LOG_OPCODE_LD_XH_R[] = "LD   XH R(%X)\n";
-const char __wf_rom LOG_OPCODE_LD_XL_R[] = "LD   XL R(%X)\n";
-const char __wf_rom LOG_OPCODE_LD_YP_R[] = "LD   YP R(%X)\n";
-const char __wf_rom LOG_OPCODE_LD_YH_R[] = "LD   YH R(%X)\n";
-const char __wf_rom LOG_OPCODE_LD_YL_R[] = "LD   YL R(%X)\n";
-const char __wf_rom LOG_OPCODE_LD_R_XP[] = "LD   R(%X) XP\n";
-const char __wf_rom LOG_OPCODE_LD_R_XH[] = "LD   R(%X) XH\n";
-const char __wf_rom LOG_OPCODE_LD_R_XL[] = "LD   R(%X) XL\n";
-const char __wf_rom LOG_OPCODE_LD_R_YP[] = "LD   R(%X) YP\n";
-const char __wf_rom LOG_OPCODE_LD_R_YH[] = "LD   R(%X) YH\n";
-const char __wf_rom LOG_OPCODE_LD_R_YL[] = "LD   R(%X) YL\n";
-const char __wf_rom LOG_OPCODE_ADC_XH[] = "ADC  XH #0x%02X\n";
-const char __wf_rom LOG_OPCODE_ADC_XL[] = "ADC  XL #0x%02X\n";
-const char __wf_rom LOG_OPCODE_ADC_YH[] = "ADC  YH #0x%02X\n";
-const char __wf_rom LOG_OPCODE_ADC_YL[] = "ADC  YL #0x%02X\n";
-const char __wf_rom LOG_OPCODE_CP_XH[] = "CP   XH #0x%02X\n";
-const char __wf_rom LOG_OPCODE_CP_XL[] = "CP   XL #0x%02X\n";
-const char __wf_rom LOG_OPCODE_CP_YH[] = "CP   YH #0x%02X\n";
-const char __wf_rom LOG_OPCODE_CP_YL[] = "CP   YL #0x%02X\n";
-const char __wf_rom LOG_OPCODE_LD_R_I[] = "LD   R(%X) #0x%02X\n";
-const char __wf_rom LOG_OPCODE_LD_R_Q[] = "LD   R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_LD_A_MN[] = "LD   A M(#0x%02X)\n";
-const char __wf_rom LOG_OPCODE_LD_B_MN[] = "LD   B M(#0x%02X)\n";
-const char __wf_rom LOG_OPCODE_LD_MN_A[] = "LD   M(#0x%02X) A\n";
-const char __wf_rom LOG_OPCODE_LD_MN_B[] = "LD   M(#0x%02X) B\n";
-const char __wf_rom LOG_OPCODE_LDPX_MX[] = "LDPX MX #0x%02X\n";
-const char __wf_rom LOG_OPCODE_LDPX_R[] = "LDPX R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_LDPY_MY[] = "LDPY MY #0x%02X\n";
-const char __wf_rom LOG_OPCODE_LDPY_R[] = "LDPY R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_LBPX[] = "LBPX #0x%02X\n";
-const char __wf_rom LOG_OPCODE_SET[] = "SET  #0x%02X\n";
-const char __wf_rom LOG_OPCODE_RST[] = "RST  #0x%02X\n";
-const char __wf_rom LOG_OPCODE_SCF[] = "SCF\n";
-const char __wf_rom LOG_OPCODE_RCF[] = "RCF\n";
-const char __wf_rom LOG_OPCODE_SZF[] = "SZF\n";
-const char __wf_rom LOG_OPCODE_RZF[] = "RZF\n";
-const char __wf_rom LOG_OPCODE_SDF[] = "SDF\n";
-const char __wf_rom LOG_OPCODE_RDF[] = "RDF\n";
-const char __wf_rom LOG_OPCODE_EI[] = "EI\n";
-const char __wf_rom LOG_OPCODE_DI[] = "DI\n";
-const char __wf_rom LOG_OPCODE_INC_SP[] = "INC  SP\n";
-const char __wf_rom LOG_OPCODE_DEC_SP[] = "DEC  SP\n";
-const char __wf_rom LOG_OPCODE_PUSH_R[] = "PUSH R(%X)\n";
-const char __wf_rom LOG_OPCODE_PUSH_XP[] = "PUSH XP\n";
-const char __wf_rom LOG_OPCODE_PUSH_XH[] = "PUSH XH\n";
-const char __wf_rom LOG_OPCODE_PUSH_XL[] = "PUSH XL\n";
-const char __wf_rom LOG_OPCODE_PUSH_YP[] = "PUSH YP\n";
-const char __wf_rom LOG_OPCODE_PUSH_YH[] = "PUSH YH\n";
-const char __wf_rom LOG_OPCODE_PUSH_YL[] = "PUSH YL\n";
-const char __wf_rom LOG_OPCODE_PUSH_F[] = "PUSH F\n";
-const char __wf_rom LOG_OPCODE_POP_R[] = "POP  R(%X)\n";
-const char __wf_rom LOG_OPCODE_POP_XP[] = "POP  XP\n";
-const char __wf_rom LOG_OPCODE_POP_XH[] = "POP  XH\n";
-const char __wf_rom LOG_OPCODE_POP_XL[] = "POP  XL\n";
-const char __wf_rom LOG_OPCODE_POP_YP[] = "POP  YP\n";
-const char __wf_rom LOG_OPCODE_POP_YH[] = "POP  YH\n";
-const char __wf_rom LOG_OPCODE_POP_YL[] = "POP  YL\n";
-const char __wf_rom LOG_OPCODE_POP_F[] = "POP  F\n";
-const char __wf_rom LOG_OPCODE_LD_SPH_R[] = "LD   SPH R(%X)\n";
-const char __wf_rom LOG_OPCODE_LD_SPL_R[] = "LD   SPL R(%X)\n";
-const char __wf_rom LOG_OPCODE_LD_R_SPH[] = "LD   R(%X) SPH\n";
-const char __wf_rom LOG_OPCODE_LD_R_SPL[] = "LD   R(%X) SPL\n";
-const char __wf_rom LOG_OPCODE_ADD_R_I[] = "ADD  R(%X) #0x%02X\n";
-const char __wf_rom LOG_OPCODE_ADD_R_Q[] = "ADD  R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_ADC_R_I[] = "ADC  R(%X) #0x%02X\n";
-const char __wf_rom LOG_OPCODE_ADC_R_Q[] = "ADC  R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_SUB[] = "SUB  R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_SBC_R_I[] = "SBC  R(%X) #0x%02X\n";
-const char __wf_rom LOG_OPCODE_SBC_R_Q[] = "SBC  R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_AND_R_I[] = "AND  R(%X) #0x%02X\n";
-const char __wf_rom LOG_OPCODE_AND_R_Q[] = "AND  R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_OR_R_I[] = "OR   R(%X) #0x%02X\n";
-const char __wf_rom LOG_OPCODE_OR_R_Q[] = "OR   R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_XOR_R_I[] = "XOR  R(%X) #0x%02X\n";
-const char __wf_rom LOG_OPCODE_XOR_R_Q[] = "XOR  R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_CP_R_I[] = "CP   R(%X) #0x%02X\n";
-const char __wf_rom LOG_OPCODE_CP_R_Q[] = "CP   R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_FAN_R_I[] = "FAN  R(%X) #0x%02X\n";
-const char __wf_rom LOG_OPCODE_FAN_R_Q[] = "FAN  R(%X) Q(%X)\n";
-const char __wf_rom LOG_OPCODE_RLC[] = "RLC  R(%X)\n";
-const char __wf_rom LOG_OPCODE_RRC[] = "RRC  R(%X)\n";
-const char __wf_rom LOG_OPCODE_INC_MN[] = "INC  M(#0x%02X)\n";
-const char __wf_rom LOG_OPCODE_DEC_MN[] = "DEC  M(#0x%02X)\n";
-const char __wf_rom LOG_OPCODE_ACPX[] = "ACPX R(%X)\n";
-const char __wf_rom LOG_OPCODE_ACPY[] = "ACPY R(%X)\n";
-const char __wf_rom LOG_OPCODE_SCPX[] = "SCPX R(%X)\n";
-const char __wf_rom LOG_OPCODE_SCPY[] = "SCPY R(%X)\n";
-const char __wf_rom LOG_OPCODE_NOT[] = "NOT  R(%X)\n";
-#endif // ENABLE_LOGS
-
 typedef struct {
 	const char __wf_rom *log;
 	u12_t code;
@@ -308,7 +163,7 @@ static u8_t sp;
 static u4_t flags;
 
 static const u12_t __wf_rom* g_program = NULL;
-static MEM_BUFFER_TYPE memory[MEM_BUFFER_SIZE];
+static MEM_BUFFER_TYPE __wf_iram memory[MEM_BUFFER_SIZE];
 
 static input_port_t inputs[INPUT_PORT_NUM] = {{0}};
 
@@ -657,7 +512,7 @@ static void set_io(u12_t n, u4_t v)
 
 		case REG_R40_R43_BZ_OUTPUT_PORT:
 			/* Output port (R40-R43) */
-			//PRINT_LOG(LOG_INFO, LOG_INFO_BUZZER, v);
+			PRINT_LOG(LOG_INFO, LOG_INFO_BUZZER, v);
 			hw_enable_buzzer(!(v & 0x8));
 			break;
 
@@ -668,13 +523,13 @@ static void set_io(u12_t n, u4_t v)
 				/* OSC3 */
 				cpu_frequency = (u32_t)OSC3_FREQUENCY;
 				scaled_cycle_accumulator = 0;
-				//PRINT_LOG(LOG_INFO, LOG_INFO_OS3);
+				PRINT_LOG(LOG_INFO, LOG_INFO_OS3);
 			}
 			if (!(v & 0x8) && cpu_frequency != OSC1_FREQUENCY) {
 				/* OSC1 */
 				cpu_frequency = OSC1_FREQUENCY;
 				scaled_cycle_accumulator = 0;
-				//PRINT_LOG(LOG_INFO, LOG_INFO_OS1);
+				PRINT_LOG(LOG_INFO, LOG_INFO_OS1);
 			}
 			break;
 
@@ -1736,7 +1591,6 @@ static void process_interrupts(void)
 
 static void print_state(const op_t __wf_rom* opcode, u12_t op, u13_t addr)
 {
-#ifdef ENABLE_LOGS
 	u8_t i;
 
 	if (!g_hal->is_log_enabled(LOG_CPU) && g_hal->is_log_enabled(LOG_OP)) 
@@ -1772,7 +1626,6 @@ static void print_state(const op_t __wf_rom* opcode, u12_t op, u13_t addr)
 		PRINT_LOG(LOG_CPU, LOG_CPU_STR, ((op >> (11 - i)) & 0x1) ? "1" : "0");
 	}
 	PRINT_LOG(LOG_CPU, LOG_CPU_STATS, pc, sp, np, x, y, a, b, flags);
-#endif // ENABLE_LOGS
 }
 
 static void handle_timers(void)
