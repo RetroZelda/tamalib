@@ -128,7 +128,7 @@ const char __wf_rom LOG_MEMORY_DATA_READ[] = "\tRead  0x%X\n";
 const char __wf_rom LOG_MEMORY_DATA_WRITE[] = "\tWrite 0x%X\n";
 const char __wf_rom LOG_MEMORY_DATA_ADDRESS[] = "\tAddress 0x%03X\n";
 const char __wf_rom LOG_MEMORY_DATA_PC[] = "\tPC = 0x%04X\n";
-const char __wf_rom LOG_INTERRUPT_TRIGGERED[] = "Interrupt triggered:\n\t%s (%u)";
+const char __wf_rom LOG_INTERRUPT_TRIGGERED[] = "Interrupt triggered:\n\t%s (%u)\n";
 const char __wf_rom LOG_CPU_ADDR[] = "0x%04X: ";
 const char __wf_rom LOG_CPU_SPACE[] = "  ";
 const char __wf_rom LOG_CPU_ARROW[] = "<<< ";
