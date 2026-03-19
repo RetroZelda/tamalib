@@ -512,7 +512,7 @@ static void set_io(u12_t n, u4_t v)
 
 		case REG_R40_R43_BZ_OUTPUT_PORT:
 			/* Output port (R40-R43) */
-			PRINT_LOG(LOG_INFO, LOG_INFO_BUZZER, v);
+			PRINT_LOG(LOG_SOUND, LOG_INFO_BUZZER, v);
 			hw_enable_buzzer(!(v & 0x8));
 			break;
 
