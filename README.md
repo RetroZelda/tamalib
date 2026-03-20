@@ -1,4 +1,5 @@
 # TamaLIB - A hardware agnostic first-gen Tamagotchi emulation library
+This fork includes changes and optimizations for use with https://github.com/RetroZelda/tamagoswan
 
 
 ## Synopsis
